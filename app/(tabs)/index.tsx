@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
@@ -31,40 +31,56 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const [nextPayment, setNextPayment] = useState<PaymentItem | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const focusedRef = useRef(false);
+  const loadingRef = useRef(false);
   const displayName = user?.email?.split("@")[0] ?? "друг";
+
+  const loadNextPayment = useCallback(async () => {
+    if (!user) {
+      setNextPayment(null);
+      return;
+    }
+
+    if (loadingRef.current) {
+      return;
+    }
+
+    loadingRef.current = true;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const items = await fetchPaymentItems(user.id);
+      const unpaidItems = items.filter((item) => item.status !== "paid");
+
+      if (focusedRef.current) {
+        setNextPayment(unpaidItems[0] ?? null);
+      }
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : "Не удалось загрузить платежи.";
+
+      if (focusedRef.current) {
+        setError(message);
+      }
+    } finally {
+      loadingRef.current = false;
+
+      if (focusedRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
-      let isActive = true;
-
-      async function loadNextPayment() {
-        if (!user) {
-          setNextPayment(null);
-          return;
-        }
-
-        setLoading(true);
-
-        try {
-          const items = await fetchPaymentItems(user.id);
-          const unpaidItems = items.filter((item) => item.status !== "paid");
-
-          if (isActive) {
-            setNextPayment(unpaidItems[0] ?? null);
-          }
-        } finally {
-          if (isActive) {
-            setLoading(false);
-          }
-        }
-      }
-
+      focusedRef.current = true;
       loadNextPayment();
 
       return () => {
-        isActive = false;
+        focusedRef.current = false;
       };
-    }, [user])
+    }, [loadNextPayment, user])
   );
 
   return (
@@ -87,6 +103,13 @@ export default function HomeScreen() {
             <Text style={styles.nextPaymentLabel}>{formatPaymentDate(nextPayment.date)}</Text>
             <Text style={styles.nextPaymentValue}>{nextPayment.title}</Text>
             <Text style={styles.nextPaymentAmount}>{formatPaymentAmount(nextPayment)}</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.emptyBlock}>
+            <Ionicons color={theme.colors.danger} name="alert-circle-outline" size={32} />
+            <Text style={styles.emptyTitle}>Не удалось загрузить платежи</Text>
+            <Text style={styles.emptyDescription}>{error}</Text>
+            <AppButton loading={loading} onPress={loadNextPayment} title="Повторить" variant="secondary" />
           </View>
         ) : (
           <View style={styles.emptyBlock}>

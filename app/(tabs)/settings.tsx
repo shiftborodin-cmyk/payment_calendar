@@ -32,7 +32,7 @@ export default function SettingsScreen() {
       </Card>
 
       <View style={styles.menu}>
-        <SettingsMenuItem icon="grid-outline" subtitle="Управление категориями" title="Категории" />
+        <SettingsMenuItem icon="grid-outline" subtitle="Управление категориями появится позже" title="Категории" />
         <SettingsMenuItem
           icon="notifications-outline"
           subtitle="Напоминания о платежах"

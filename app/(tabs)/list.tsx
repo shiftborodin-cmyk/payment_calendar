@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
 import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
 import { deletePaymentItem, fetchPaymentItems, markPaymentItemPaid } from "@/features/payments/paymentsApi";
+import { AppButton } from "@/shared/ui/AppButton";
 import { Card } from "@/shared/ui/Card";
 import { EmptyStateText } from "@/shared/ui/PaymentPlaceholderCard";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
@@ -18,6 +19,9 @@ export default function ListScreen() {
   const [items, setItems] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const focusedRef = useRef(false);
+  const loadingRef = useRef(false);
 
   const loadItems = useCallback(async () => {
     if (!user) {
@@ -25,30 +29,56 @@ export default function ListScreen() {
       return;
     }
 
+    if (loadingRef.current) {
+      return;
+    }
+
+    loadingRef.current = true;
     setLoading(true);
+    setError(null);
 
     try {
       const nextItems = await fetchPaymentItems(user.id);
-      setItems(nextItems);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Не удалось загрузить платежи.";
-      Alert.alert("Ошибка", message);
+
+      if (focusedRef.current) {
+        setItems(nextItems);
+      }
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : "Не удалось загрузить платежи.";
+
+      if (focusedRef.current) {
+        setError(message);
+      }
     } finally {
-      setLoading(false);
+      loadingRef.current = false;
+
+      if (focusedRef.current) {
+        setLoading(false);
+      }
     }
   }, [user]);
 
   useFocusEffect(
     useCallback(() => {
+      focusedRef.current = true;
       loadItems();
+
+      return () => {
+        focusedRef.current = false;
+      };
     }, [loadItems])
   );
 
   async function handleMarkPaid(item: PaymentItem) {
+    if (!user) {
+      Alert.alert("Ошибка", "Нужно войти в аккаунт.");
+      return;
+    }
+
     setActionId(item.id);
 
     try {
-      await markPaymentItemPaid(item.id);
+      await markPaymentItemPaid(user.id, item.id);
       await loadItems();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось отметить платёж.";
@@ -59,10 +89,15 @@ export default function ListScreen() {
   }
 
   async function handleDelete(item: PaymentItem) {
+    if (!user) {
+      Alert.alert("Ошибка", "Нужно войти в аккаунт.");
+      return;
+    }
+
     setActionId(item.id);
 
     try {
-      await deletePaymentItem(item.id);
+      await deletePaymentItem(user.id, item.id);
       await loadItems();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось удалить платёж.";
@@ -86,7 +121,15 @@ export default function ListScreen() {
         <Text style={styles.addButtonText}>Добавить платёж</Text>
       </Pressable>
 
-      {items.length === 0 ? (
+      {error ? (
+        <Card style={styles.errorCard}>
+          <Text style={styles.errorTitle}>Не удалось загрузить платежи</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <AppButton loading={loading} onPress={loadItems} title="Повторить" variant="secondary" />
+        </Card>
+      ) : null}
+
+      {!error && items.length === 0 ? (
         <Card style={styles.emptyCard}>
           <View style={styles.emptyIconWrap}>
             <Ionicons color={theme.colors.primary} name="receipt-outline" size={24} />
@@ -98,7 +141,7 @@ export default function ListScreen() {
             </Text>
           </View>
         </Card>
-      ) : (
+      ) : items.length > 0 ? (
         <View style={styles.list}>
           {items.map((item) => (
             <Card key={item.id} style={styles.paymentCard}>
@@ -147,7 +190,7 @@ export default function ListScreen() {
             </Card>
           ))}
         </View>
-      )}
+      ) : null}
     </ScreenContainer>
   );
 }
@@ -176,6 +219,19 @@ const styles = StyleSheet.create({
     color: theme.colors.background,
     fontSize: 16,
     fontWeight: "700"
+  },
+  errorCard: {
+    gap: theme.spacing.sm
+  },
+  errorTitle: {
+    color: theme.colors.danger,
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  errorText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20
   },
   emptyCard: {
     alignItems: "center",

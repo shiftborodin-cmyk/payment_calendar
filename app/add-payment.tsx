@@ -25,6 +25,10 @@ export default function AddPaymentScreen() {
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
+    if (saving) {
+      return;
+    }
+
     setError(null);
 
     if (!user) {
@@ -64,6 +68,7 @@ export default function AddPaymentScreen() {
       router.back();
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : "Не удалось сохранить платёж.";
+      setError(message);
       Alert.alert("Ошибка", message);
     } finally {
       setSaving(false);

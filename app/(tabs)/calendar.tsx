@@ -1,18 +1,26 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { useAuth } from "@/features/auth/AuthContext";
+import { fetchPaymentItems } from "@/features/payments/paymentsApi";
 import { Card } from "@/shared/ui/Card";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { SegmentControl } from "@/shared/ui/SegmentControl";
 import { theme } from "@/shared/theme/theme";
+import type { PaymentItem } from "@/types/payment";
 
 type CalendarView = "month" | "week" | "day";
 
 const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
 export default function CalendarScreen() {
+  const { user } = useAuth();
   const [view, setView] = useState<CalendarView>("month");
+  const [items, setItems] = useState<PaymentItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const monthLabel = useMemo(() => {
     const formatter = new Intl.DateTimeFormat("ru-RU", {
@@ -24,6 +32,58 @@ export default function CalendarScreen() {
   }, []);
 
   const calendarCells = useMemo(() => Array.from({ length: 35 }, (_, index) => index + 1), []);
+  const currentDate = new Date();
+  const paymentDays = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    return new Set(
+      items
+        .map((item) => new Date(`${item.date}T00:00:00`))
+        .filter((date) => date.getFullYear() === year && date.getMonth() === month)
+        .map((date) => date.getDate())
+    );
+  }, [items, currentDate]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      async function loadPayments() {
+        if (!user) {
+          setItems([]);
+          return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+          const nextItems = await fetchPaymentItems(user.id);
+
+          if (isActive) {
+            setItems(nextItems);
+          }
+        } catch (loadError) {
+          const message = loadError instanceof Error ? loadError.message : "Не удалось загрузить платежи.";
+
+          if (isActive) {
+            setError(message);
+          }
+        } finally {
+          if (isActive) {
+            setLoading(false);
+          }
+        }
+      }
+
+      loadPayments();
+
+      return () => {
+        isActive = false;
+      };
+    }, [user])
+  );
 
   return (
     <ScreenContainer>
@@ -47,7 +107,13 @@ export default function CalendarScreen() {
           <View>
             <Text style={styles.monthLabel}>{monthLabel}</Text>
             <Text style={styles.calendarModeLabel}>
-              {view === "month" ? "Обзор месяца" : view === "week" ? "Обзор недели" : "Расписание дня"}
+              {loading
+                ? "Загружаю платежи..."
+                : view === "month"
+                  ? "Обзор месяца"
+                  : view === "week"
+                    ? "Обзор недели"
+                    : "Расписание дня"}
             </Text>
           </View>
           <View style={styles.calendarIconWrap}>
@@ -78,13 +144,16 @@ export default function CalendarScreen() {
               >
                 {day <= 31 ? day : ""}
               </Text>
+              {paymentDays.has(day) ? <View style={styles.dayDot} /> : null}
             </View>
           ))}
         </View>
 
         <View style={styles.legend}>
           <View style={styles.legendDot} />
-          <Text style={styles.legendText}>Здесь будут отмечены дни с платежами</Text>
+          <Text style={styles.legendText}>
+            {error ? "Не удалось загрузить платежи" : "Дни с локальными платежами отмечены точкой"}
+          </Text>
         </View>
       </Card>
     </ScreenContainer>
@@ -174,6 +243,13 @@ const styles = StyleSheet.create({
   dayTextActive: {
     color: theme.colors.primary,
     fontWeight: "700"
+  },
+  dayDot: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 3,
+    height: 6,
+    marginTop: 4,
+    width: 6
   },
   legend: {
     alignItems: "center",
