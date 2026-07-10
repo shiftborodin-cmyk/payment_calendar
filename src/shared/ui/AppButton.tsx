@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type PressableProps } from "react-native";
 
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 type AppButtonProps = PressableProps & {
   title: string;
@@ -19,6 +19,8 @@ export function AppButton({
   ...props
 }: AppButtonProps) {
   const isDisabled = disabled || loading;
+  const theme = useTheme();
+  const styles = createStyles(theme);
 
   return (
     <Pressable
@@ -49,7 +51,8 @@ export function AppButton({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   button: {
     alignItems: "center",
     borderRadius: theme.radius.md,
@@ -84,4 +87,5 @@ const styles = StyleSheet.create({
   titleSecondary: {
     color: theme.colors.text
   }
-});
+  });
+}

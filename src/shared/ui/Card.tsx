@@ -1,12 +1,15 @@
 import { StyleSheet, View, type ViewProps } from "react-native";
 
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 type CardProps = ViewProps & {
   children: React.ReactNode;
 };
 
 export function Card({ children, style, ...props }: CardProps) {
+  const theme = useTheme();
+  const styles = createStyles(theme);
+
   return (
     <View style={[styles.card, style]} {...props}>
       {children}
@@ -14,7 +17,8 @@ export function Card({ children, style, ...props }: CardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surfaceElevated,
     borderColor: theme.colors.border,
@@ -22,4 +26,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: theme.spacing.md
   }
-});
+  });
+}

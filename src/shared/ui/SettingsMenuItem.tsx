@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 type SettingsMenuItemProps = {
   icon: ComponentProps<typeof Ionicons>["name"];
@@ -14,6 +14,9 @@ type SettingsMenuItemProps = {
 };
 
 export function SettingsMenuItem({ icon, title, subtitle, onPress, badge, disabled = false }: SettingsMenuItemProps) {
+  const theme = useTheme();
+  const styles = createStyles(theme);
+
   return (
     <Pressable
       disabled={disabled}
@@ -33,7 +36,8 @@ export function SettingsMenuItem({ icon, title, subtitle, onPress, badge, disabl
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   item: {
     alignItems: "center",
     backgroundColor: theme.colors.surfaceElevated,
@@ -81,4 +85,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 5
   }
-});
+  });
+}

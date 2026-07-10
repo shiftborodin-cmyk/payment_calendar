@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import type { ColorValue } from "react-native";
 
 import { translate } from "@/features/settings/i18n";
-import { theme } from "@/shared/theme/theme";
+import { useTheme } from "@/shared/theme/theme";
 
 type TabIconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -15,6 +15,8 @@ function tabIcon(name: TabIconName) {
 }
 
 export default function TabsLayout() {
+  const theme = useTheme();
+
   return (
     <Tabs
       initialRouteName="index"

@@ -16,7 +16,7 @@ import { fetchPaymentItems } from "@/features/payments/paymentsApi";
 import { AppButton } from "@/shared/ui/AppButton";
 import { Card } from "@/shared/ui/Card";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 import type { PaymentItem } from "@/types/payment";
 
 function getGreeting() {
@@ -41,6 +41,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { settings } = useAppSettings();
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const [items, setItems] = useState<PaymentItem[]>([]);
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [loading, setLoading] = useState(false);
@@ -202,10 +204,10 @@ export default function HomeScreen() {
 
       <View style={styles.addActions}>
         <View style={styles.addAction}>
-          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Добавить расход", "Add expense")} />
+          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Расход", "Expense")} />
         </View>
         {settings.includeIncome ? <View style={styles.addAction}>
-          <AppButton icon="add" onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Добавить доход", "Add income")} variant="secondary" />
+          <AppButton icon="add" onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Доход", "Income")} variant="secondary" />
         </View> : null}
       </View>
 
@@ -295,7 +297,8 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   screenContent: {
     gap: 8,
     paddingBottom: theme.spacing.sm
@@ -570,7 +573,8 @@ const styles = StyleSheet.create({
     color: "#D98A8A",
     fontWeight: "700"
   }
-});
+  });
+}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat(getCurrentLocale(), {

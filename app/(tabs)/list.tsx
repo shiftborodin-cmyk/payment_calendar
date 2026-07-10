@@ -21,7 +21,7 @@ import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { Card } from "@/shared/ui/Card";
 import { EmptyStateText } from "@/shared/ui/PaymentPlaceholderCard";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 import type { PaymentItem } from "@/types/payment";
 
 type PaymentFilter = "all" | "unpaid" | "overdue" | "paid";
@@ -37,6 +37,8 @@ export default function ListScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { settings } = useAppSettings();
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const [items, setItems] = useState<PaymentItem[]>([]);
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [loading, setLoading] = useState(false);
@@ -466,7 +468,8 @@ export default function ListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   header: {
     gap: theme.spacing.sm,
     marginBottom: theme.spacing.sm
@@ -722,4 +725,5 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: theme.colors.danger
   }
-});
+  });
+}

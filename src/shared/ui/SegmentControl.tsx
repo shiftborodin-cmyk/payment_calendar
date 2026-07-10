@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 type SegmentOption<T extends string> = {
   id: T;
@@ -18,6 +18,9 @@ export function SegmentControl<T extends string>({
   value,
   onChange
 }: SegmentControlProps<T>) {
+  const theme = useTheme();
+  const styles = createStyles(theme);
+
   return (
     <View style={styles.container}>
       {options.map((option) => {
@@ -37,7 +40,8 @@ export function SegmentControl<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   container: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
@@ -64,4 +68,5 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: "600"
   }
-});
+  });
+}

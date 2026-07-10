@@ -1,12 +1,15 @@
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 type AppTextInputProps = TextInputProps & {
   label: string;
 };
 
 export function AppTextInput({ label, style, ...props }: AppTextInputProps) {
+  const theme = useTheme();
+  const styles = createStyles(theme);
+
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -19,7 +22,8 @@ export function AppTextInput({ label, style, ...props }: AppTextInputProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   field: {
     gap: theme.spacing.xs
   },
@@ -38,4 +42,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm + 4
   }
-});
+  });
+}

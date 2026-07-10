@@ -12,7 +12,7 @@ import { getDateAfterDays, getDateAfterMonths } from "@/features/payments/paymen
 import { AppButton } from "@/shared/ui/AppButton";
 import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { PaymentDatePicker } from "@/shared/ui/PaymentDatePicker";
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 import type { PaymentItem, PaymentType, RepeatRule } from "@/types/payment";
 
 export type PaymentFormValues = {
@@ -62,6 +62,8 @@ export function PaymentForm({
 }: PaymentFormProps) {
   const { user } = useAuth();
   const { settings } = useAppSettings();
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const [title, setTitle] = useState(initialPayment?.title ?? "");
   const [amount, setAmount] = useState(initialPayment?.amount?.toString() ?? "");
   const [date, setDate] = useState(initialPayment?.date ?? getTodayDateInputValue());
@@ -304,7 +306,8 @@ export function PaymentForm({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   keyboard: {
     flex: 1,
     gap: theme.spacing.lg
@@ -396,4 +399,5 @@ const styles = StyleSheet.create({
   actions: {
     gap: theme.spacing.sm
   }
-});
+  });
+}

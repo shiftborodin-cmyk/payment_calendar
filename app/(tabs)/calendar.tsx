@@ -37,7 +37,7 @@ import { fetchPaymentItems } from "@/features/payments/paymentsApi";
 import { Card } from "@/shared/ui/Card";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { SegmentControl } from "@/shared/ui/SegmentControl";
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 import type { PaymentItem } from "@/types/payment";
 
 type CalendarView = "month" | "week";
@@ -104,6 +104,8 @@ function formatCurrency(value: number) {
 export default function CalendarScreen() {
   const { user } = useAuth();
   const { settings } = useAppSettings();
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const weekDays = settings.language === "en" ? weekDaysEn : weekDaysRu;
   const [view, setView] = useState<CalendarView>("month");
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
@@ -620,7 +622,8 @@ export default function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   screenContent: {
     paddingBottom: 132
   },
@@ -980,4 +983,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700"
   }
-});
+  });
+}

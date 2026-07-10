@@ -1,13 +1,16 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/shared/ui/Card";
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 type PaymentPlaceholderCardProps = {
   index: number;
 };
 
 export function PaymentPlaceholderCard({ index }: PaymentPlaceholderCardProps) {
+  const theme = useTheme();
+  const styles = createStyles(theme);
+
   return (
     <Card style={styles.card}>
       <View style={styles.row}>
@@ -23,10 +26,14 @@ export function PaymentPlaceholderCard({ index }: PaymentPlaceholderCardProps) {
 }
 
 export function EmptyStateText({ children }: { children: string }) {
+  const theme = useTheme();
+  const styles = createStyles(theme);
+
   return <Text style={styles.emptyText}>{children}</Text>;
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   card: {
     opacity: 0.7,
     padding: theme.spacing.md
@@ -73,4 +80,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22
   }
-});
+  });
+}

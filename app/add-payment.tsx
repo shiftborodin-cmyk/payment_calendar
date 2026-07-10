@@ -7,13 +7,15 @@ import { PaymentForm, type PaymentFormValues } from "@/features/payments/Payment
 import { createPaymentItem } from "@/features/payments/paymentsApi";
 import { translate } from "@/features/settings/i18n";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 export default function AddPaymentScreen() {
   const router = useRouter();
   const { type: typeParam } = useLocalSearchParams<{ type?: string }>();
   const operationType = typeParam === "income" ? "income" : "expense";
   const { user } = useAuth();
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -63,7 +65,8 @@ export default function AddPaymentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   header: {
     gap: theme.spacing.xs
   },
@@ -77,4 +80,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22
   }
-});
+  });
+}

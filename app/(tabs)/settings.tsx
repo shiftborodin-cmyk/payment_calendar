@@ -11,24 +11,38 @@ import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { Card } from "@/shared/ui/Card";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { SettingsMenuItem } from "@/shared/ui/SettingsMenuItem";
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppAccentColor, type AppTheme, type AppThemeMode } from "@/shared/theme/theme";
+
+const accentOptions: Array<{ id: AppAccentColor; labelRu: string; labelEn: string; color: string }> = [
+  { id: "white", labelRu: "Белый", labelEn: "White", color: "#F2F7F4" },
+  { id: "green", labelRu: "Зелёный", labelEn: "Green", color: "#36D987" },
+  { id: "blue", labelRu: "Синий", labelEn: "Blue", color: "#7BA7FF" },
+  { id: "mint", labelRu: "Мята", labelEn: "Mint", color: "#7CE7C9" },
+  { id: "amber", labelRu: "Янтарь", labelEn: "Amber", color: "#F2C96B" }
+];
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { settings, saveSettings } = useAppSettings();
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const [loading, setLoading] = useState(false);
   const [displayName, setDisplayName] = useState(settings.displayName);
   const [editingName, setEditingName] = useState(false);
   const [language, setLanguage] = useState<AppLanguage>(settings.language);
   const [includeIncome, setIncludeIncome] = useState(settings.includeIncome);
   const [openingBalance, setOpeningBalance] = useState(String(settings.openingBalance));
+  const [themeMode, setThemeMode] = useState<AppThemeMode>(settings.themeMode);
+  const [accentColor, setAccentColor] = useState<AppAccentColor>(settings.accentColor);
 
   useEffect(() => {
     setDisplayName(settings.displayName);
     setLanguage(settings.language);
     setIncludeIncome(settings.includeIncome);
     setOpeningBalance(String(settings.openingBalance));
+    setThemeMode(settings.themeMode);
+    setAccentColor(settings.accentColor);
   }, [settings]);
 
   async function handleSaveSettings() {
@@ -46,7 +60,9 @@ export default function SettingsScreen() {
         ...settings,
         language,
         includeIncome,
-        openingBalance: includeIncome ? parsedOpeningBalance : settings.openingBalance
+        openingBalance: includeIncome ? parsedOpeningBalance : settings.openingBalance,
+        themeMode,
+        accentColor
       });
       Alert.alert(translate("Готово", "Done"), translate("Настройки сохранены.", "Settings saved."));
     } catch (error) {
@@ -205,6 +221,46 @@ export default function SettingsScreen() {
         <AppButton loading={loading} onPress={handleSaveSettings} title={translate("Сохранить настройки", "Save settings")} />
       </Card>
 
+      <Card style={styles.preferencesCard}>
+        <Text style={styles.sectionTitle}>{translate("Тема", "Theme")}</Text>
+        <View style={styles.choiceRow}>
+          {[
+            { id: "dark" as const, label: translate("Тёмная", "Dark") },
+            { id: "light" as const, label: translate("Светлая", "Light") }
+          ].map((option) => (
+            <Pressable
+              key={option.id}
+              onPress={() => setThemeMode(option.id)}
+              style={[styles.choice, themeMode === option.id && styles.choiceActive]}
+            >
+              <Text style={[styles.choiceText, themeMode === option.id && styles.choiceTextActive]}>{option.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.hint}>{translate("Светлая тема мягкая, без чисто белого фона.", "The light theme is soft, without a pure white background.")}</Text>
+
+        <Text style={styles.label}>{translate("Акцентный цвет", "Accent color")}</Text>
+        <View style={styles.accentRow}>
+          {accentOptions.map((option) => (
+            <Pressable
+              accessibilityLabel={translate(option.labelRu, option.labelEn)}
+              key={option.id}
+              onPress={() => setAccentColor(option.id)}
+              style={[
+                styles.accentChoice,
+                { backgroundColor: option.color },
+                accentColor === option.id && styles.accentChoiceActive
+              ]}
+            >
+              {accentColor === option.id ? (
+                <Ionicons color={option.id === "white" ? "#152019" : "#0B1410"} name="checkmark" size={17} />
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
+        <AppButton loading={loading} onPress={handleSaveSettings} title={translate("Сохранить тему", "Save theme")} />
+      </Card>
+
       <View style={styles.menu}>
         <SettingsMenuItem
           icon="grid-outline"
@@ -219,13 +275,6 @@ export default function SettingsScreen() {
           subtitle={translate("Напоминания о платежах", "Payment reminders")}
           title={translate("Уведомления", "Notifications")}
         />
-        <SettingsMenuItem
-          badge={translate("Скоро", "Soon")}
-          disabled
-          icon="color-palette-outline"
-          subtitle={translate("Тёмная тема", "Dark theme")}
-          title={translate("Тема", "Theme")}
-        />
       </View>
 
       <AppButton loading={loading} onPress={handleSignOut} title={translate("Выйти", "Sign out")} variant="secondary" />
@@ -233,7 +282,8 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   header: {
     gap: theme.spacing.xs,
     marginBottom: theme.spacing.sm
@@ -338,5 +388,23 @@ const styles = StyleSheet.create({
   },
   choiceTextActive: {
     color: theme.colors.primary
+  },
+  accentRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm
+  },
+  accentChoice: {
+    alignItems: "center",
+    borderColor: theme.colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center",
+    width: 36
+  },
+  accentChoiceActive: {
+    borderColor: theme.colors.text,
+    borderWidth: 2
   }
-});
+  });
+}

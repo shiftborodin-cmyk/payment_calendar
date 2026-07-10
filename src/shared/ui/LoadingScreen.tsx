@@ -1,9 +1,12 @@
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 export function LoadingScreen() {
+  const theme = useTheme();
+  const styles = createStyles(theme);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -13,7 +16,8 @@ export function LoadingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.background
@@ -23,4 +27,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center"
   }
-});
+  });
+}

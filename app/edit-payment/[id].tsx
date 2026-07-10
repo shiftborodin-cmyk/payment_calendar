@@ -8,13 +8,15 @@ import { fetchPaymentItemById, updatePaymentItem } from "@/features/payments/pay
 import { translate } from "@/features/settings/i18n";
 import { AppButton } from "@/shared/ui/AppButton";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 import type { PaymentItem } from "@/types/payment";
 
 export default function EditPaymentScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const [payment, setPayment] = useState<PaymentItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,7 +115,8 @@ export default function EditPaymentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   header: {
     gap: theme.spacing.xs
   },
@@ -139,4 +142,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20
   }
-});
+  });
+}

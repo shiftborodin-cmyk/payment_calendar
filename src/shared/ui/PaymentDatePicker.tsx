@@ -11,7 +11,7 @@ import {
   moveDateByMonthsKeepingDesiredDay,
   parsePaymentDate
 } from "@/features/payments/paymentDates";
-import { theme } from "@/shared/theme/theme";
+import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 type PaymentDatePickerProps = {
   monthDate: string;
@@ -51,6 +51,8 @@ export function PaymentDatePicker({
   selectedDate,
   visible
 }: PaymentDatePickerProps) {
+  const theme = useTheme();
+  const styles = createStyles(theme);
   const weekDays = getCurrentLanguage() === "en" ? weekDaysEn : weekDaysRu;
 
   function moveMonth(delta: number) {
@@ -106,7 +108,8 @@ export function PaymentDatePicker({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   backdrop: {
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.68)",
@@ -145,4 +148,5 @@ const styles = StyleSheet.create({
   todayButton: { backgroundColor: theme.colors.primarySoft, borderRadius: theme.radius.md, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
   todayText: { color: theme.colors.text, fontSize: 14, fontWeight: "700" },
   selectedLabel: { color: theme.colors.textMuted, flex: 1, fontSize: 13, textAlign: "right" }
-});
+  });
+}

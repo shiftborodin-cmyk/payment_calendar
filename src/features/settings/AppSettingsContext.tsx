@@ -3,12 +3,15 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 
 import { useAuth } from "@/features/auth/AuthContext";
 import { setCurrentLanguage, type AppLanguage } from "@/features/settings/i18n";
+import type { AppAccentColor, AppThemeMode } from "@/shared/theme/theme";
 
 export type AppSettings = {
   displayName: string;
   language: AppLanguage;
   includeIncome: boolean;
   openingBalance: number;
+  themeMode: AppThemeMode;
+  accentColor: AppAccentColor;
 };
 
 type AppSettingsContextValue = {
@@ -21,7 +24,9 @@ const defaultSettings: AppSettings = {
   displayName: "",
   language: "ru",
   includeIncome: false,
-  openingBalance: 0
+  openingBalance: 0,
+  themeMode: "dark",
+  accentColor: "white"
 };
 
 const AppSettingsContext = createContext<AppSettingsContextValue | null>(null);
@@ -43,7 +48,15 @@ function normalizeSettings(value: unknown): AppSettings {
     openingBalance:
       typeof candidate.openingBalance === "number" && Number.isFinite(candidate.openingBalance)
         ? candidate.openingBalance
-        : 0
+        : 0,
+    themeMode: candidate.themeMode === "light" ? "light" : "dark",
+    accentColor:
+      candidate.accentColor === "green" ||
+      candidate.accentColor === "blue" ||
+      candidate.accentColor === "mint" ||
+      candidate.accentColor === "amber"
+        ? candidate.accentColor
+        : "white"
   };
 }
 

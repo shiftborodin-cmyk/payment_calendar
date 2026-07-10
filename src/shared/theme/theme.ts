@@ -1,26 +1,109 @@
-export const theme = {
-  colors: {
-    background: "#0B1410",
-    surface: "#111D17",
-    surfaceElevated: "#17261E",
-    primary: "#F2F7F4",
-    primarySoft: "#29332E",
-    text: "#F2F7F4",
-    textMuted: "#9BAAA2",
-    border: "#24352C",
-    danger: "#FF6B6B",
-    warning: "#F2C94C"
-  },
+import { createContext, useContext } from "react";
+
+export type AppThemeMode = "dark" | "light";
+export type AppAccentColor = "white" | "green" | "blue" | "mint" | "amber";
+
+type ThemeColors = {
+  background: string;
+  surface: string;
+  surfaceElevated: string;
+  primary: string;
+  primarySoft: string;
+  text: string;
+  textMuted: string;
+  border: string;
+  danger: string;
+  warning: string;
+};
+
+export type AppTheme = {
+  mode: AppThemeMode;
+  accent: AppAccentColor;
+  colors: ThemeColors;
   radius: {
-    sm: 8,
-    md: 12,
-    lg: 16
-  },
+    sm: number;
+    md: number;
+    lg: number;
+  };
   spacing: {
-    xs: 4,
-    sm: 8,
-    md: 16,
-    lg: 24,
-    xl: 32
+    xs: number;
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+  };
+};
+
+const accentColors: Record<AppAccentColor, string> = {
+  white: "#F2F7F4",
+  green: "#36D987",
+  blue: "#7BA7FF",
+  mint: "#7CE7C9",
+  amber: "#F2C96B"
+};
+
+const darkBase: Omit<ThemeColors, "primary" | "primarySoft"> = {
+  background: "#0B1410",
+  surface: "#111D17",
+  surfaceElevated: "#17261E",
+  text: "#F2F7F4",
+  textMuted: "#9BAAA2",
+  border: "#24352C",
+  danger: "#FF7A7A",
+  warning: "#F2C94C"
+};
+
+const lightBase: Omit<ThemeColors, "primary" | "primarySoft"> = {
+  background: "#EEF2EE",
+  surface: "#E5EBE6",
+  surfaceElevated: "#FAFBF8",
+  text: "#152019",
+  textMuted: "#68776E",
+  border: "#D1DAD2",
+  danger: "#C85050",
+  warning: "#A87918"
+};
+
+function getPrimarySoft(mode: AppThemeMode, accent: AppAccentColor) {
+  if (mode === "dark") {
+    return accent === "white" ? "#29332E" : `${accentColors[accent]}26`;
   }
-} as const;
+
+  return accent === "white" ? "#DDE4DE" : `${accentColors[accent]}30`;
+}
+
+export function createAppTheme(mode: AppThemeMode, accent: AppAccentColor): AppTheme {
+  const base = mode === "light" ? lightBase : darkBase;
+
+  return {
+    mode,
+    accent,
+    colors: {
+      ...base,
+      primary: accentColors[accent],
+      primarySoft: getPrimarySoft(mode, accent)
+    },
+    radius: {
+      sm: 8,
+      md: 12,
+      lg: 16
+    },
+    spacing: {
+      xs: 4,
+      sm: 8,
+      md: 16,
+      lg: 24,
+      xl: 32
+    }
+  };
+}
+
+export const theme = createAppTheme("dark", "white");
+
+const ThemeContext = createContext<AppTheme>(theme);
+
+export const ThemeProvider = ThemeContext.Provider;
+
+export function useTheme() {
+  return useContext(ThemeContext);
+}
