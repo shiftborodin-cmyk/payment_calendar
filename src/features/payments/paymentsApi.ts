@@ -27,7 +27,8 @@ export async function createPaymentItem(input: CreatePaymentInput) {
     title: input.title,
     amount: input.amount,
     date: input.date,
-    comment: input.comment
+    comment: input.comment,
+    repeatRule: input.repeatRule
   });
 }
 
@@ -36,7 +37,8 @@ export async function updatePaymentItem(id: string, input: UpdatePaymentInput) {
     title: input.title,
     amount: input.amount,
     date: input.date,
-    comment: input.comment
+    comment: input.comment,
+    repeatRule: input.repeatRule
   });
 }
 

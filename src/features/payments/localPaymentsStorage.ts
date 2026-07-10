@@ -1,12 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import type { PaymentItem, PaymentStatus } from "@/types/payment";
+import type { PaymentItem, PaymentStatus, RepeatRule } from "@/types/payment";
 
 export type LocalPaymentInput = {
   title: string;
   amount: number | null;
   date: string;
   comment: string | null;
+  repeatRule: RepeatRule;
 };
 
 type LocalPaymentRow = {
@@ -18,6 +19,7 @@ type LocalPaymentRow = {
   date: string;
   comment: string | null;
   status: PaymentStatus;
+  repeat_rule?: RepeatRule;
   created_at: string;
   updated_at: string;
 };
@@ -111,7 +113,7 @@ function mapLocalPayment(row: LocalPaymentRow): PaymentItem {
     time: null,
     comment: row.comment,
     status: row.status,
-    repeatRule: "none",
+    repeatRule: row.repeat_rule ?? "none",
     notificationOffsets: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -163,6 +165,7 @@ export async function createLocalPayment(userId: string, input: LocalPaymentInpu
       date: input.date,
       comment: input.comment,
       status: "scheduled",
+      repeat_rule: input.repeatRule,
       created_at: now,
       updated_at: now
     };
@@ -185,6 +188,7 @@ export async function updateLocalPayment(userId: string, paymentId: string, inpu
             amount: input.amount,
             date: input.date,
             comment: input.comment,
+            repeat_rule: input.repeatRule,
             updated_at: now
           }
         : payment

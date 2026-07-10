@@ -4,7 +4,14 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
+import { getMonthEndDateString, getMonthStartDateString, getTodayDateString } from "@/features/payments/paymentDates";
 import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
+import {
+  expandPaymentOccurrences,
+  getDateAfterDays,
+  isPaymentOverdue,
+  sortPaymentsByDate
+} from "@/features/payments/paymentOccurrences";
 import { fetchPaymentItems } from "@/features/payments/paymentsApi";
 import { AppButton } from "@/shared/ui/AppButton";
 import { Card } from "@/shared/ui/Card";
@@ -26,18 +33,8 @@ function getGreeting() {
   return "Добрый вечер";
 }
 
-function getDateValue(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function getDateAfterDays(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return getDateValue(date);
-}
-
-function sortByDate(items: PaymentItem[]) {
-  return [...items].sort((left, right) => left.date.localeCompare(right.date) || left.createdAt.localeCompare(right.createdAt));
+function sumPayments(items: PaymentItem[]) {
+  return items.reduce((sum, item) => sum + (item.amount ?? 0), 0);
 }
 
 export default function HomeScreen() {
@@ -85,12 +82,26 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  const today = getDateValue(new Date());
+  const today = getTodayDateString();
   const weekEnd = getDateAfterDays(7);
-  const unpaidItems = useMemo(() => sortByDate(items.filter((item) => item.status !== "paid")), [items]);
+  const monthStart = getMonthStartDateString(today);
+  const monthEnd = getMonthEndDateString(today);
+  const expandedItems = useMemo(() => expandPaymentOccurrences(items, { startDate: "1970-01-01" }), [items]);
+  const unpaidItems = useMemo(
+    () => sortPaymentsByDate(expandedItems.filter((item) => item.status !== "paid")),
+    [expandedItems]
+  );
   const nextPayment = unpaidItems.find((item) => item.date >= today) ?? unpaidItems[0] ?? null;
-  const overdueCount = unpaidItems.filter((item) => item.date < today).length;
+  const overdueItems = unpaidItems.filter((item) => isPaymentOverdue(item));
+  const overdueCount = overdueItems.length;
+  const overdueTotal = sumPayments(overdueItems);
   const upcomingWeekItems = unpaidItems.filter((item) => item.date >= today && item.date <= weekEnd).slice(0, 4);
+  const currentMonthUnpaidTotal = sumPayments(
+    unpaidItems.filter((item) => item.date >= monthStart && item.date <= monthEnd)
+  );
+  const currentMonthPaidTotal = sumPayments(
+    expandedItems.filter((item) => item.status === "paid" && item.date >= monthStart && item.date <= monthEnd)
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -151,11 +162,25 @@ export default function HomeScreen() {
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{overdueCount}</Text>
             <Text style={styles.statLabel}>Просрочено</Text>
+            <Text style={styles.statSubValue}>{formatCurrency(overdueTotal)}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{upcomingWeekItems.length}</Text>
             <Text style={styles.statLabel}>На 7 дней</Text>
+          </View>
+        </Card>
+      ) : null}
+
+      {items.length > 0 ? (
+        <Card style={styles.monthCard}>
+          <View style={styles.monthRow}>
+            <Text style={styles.monthLabel}>В этом месяце</Text>
+            <Text style={styles.monthValue}>{formatCurrency(currentMonthUnpaidTotal)}</Text>
+          </View>
+          <View style={styles.monthRow}>
+            <Text style={styles.monthLabel}>Оплачено в этом месяце</Text>
+            <Text style={styles.monthValue}>{formatCurrency(currentMonthPaidTotal)}</Text>
           </View>
         </Card>
       ) : null}
@@ -168,6 +193,7 @@ export default function HomeScreen() {
               <View style={styles.miniText}>
                 <Text style={styles.miniTitle}>{payment.title}</Text>
                 <Text style={styles.miniDate}>{formatPaymentDate(payment.date)}</Text>
+                {payment.isGeneratedOccurrence ? <Text style={styles.repeatText}>Повторяется</Text> : null}
               </View>
               <Text style={styles.miniAmount}>{formatPaymentAmount(payment)}</Text>
             </Card>
@@ -285,6 +311,30 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 13
   },
+  statSubValue: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  monthCard: {
+    gap: theme.spacing.sm
+  },
+  monthRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: theme.spacing.md
+  },
+  monthLabel: {
+    color: theme.colors.textMuted,
+    flex: 1,
+    fontSize: 14
+  },
+  monthValue: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: "800"
+  },
   upcomingBlock: {
     gap: theme.spacing.sm
   },
@@ -315,5 +365,18 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 15,
     fontWeight: "700"
+  },
+  repeatText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: "700"
   }
 });
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("ru-RU", {
+    currency: "RUB",
+    maximumFractionDigits: 0,
+    style: "currency"
+  }).format(value);
+}

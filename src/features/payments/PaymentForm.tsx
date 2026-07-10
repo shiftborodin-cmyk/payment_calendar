@@ -1,17 +1,20 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { isValidPaymentDate } from "@/features/payments/paymentDates";
 import { getTodayDateInputValue } from "@/features/payments/paymentFormatters";
+import { getDateAfterDays, getDateAfterMonths } from "@/features/payments/paymentOccurrences";
 import { AppButton } from "@/shared/ui/AppButton";
 import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { theme } from "@/shared/theme/theme";
-import type { PaymentItem } from "@/types/payment";
+import type { PaymentItem, RepeatRule } from "@/types/payment";
 
 export type PaymentFormValues = {
   title: string;
   amount: number | null;
   date: string;
   comment: string | null;
+  repeatRule: RepeatRule;
 };
 
 type PaymentFormProps = {
@@ -23,9 +26,19 @@ type PaymentFormProps = {
   onCancel: () => void;
 };
 
-function isValidDateInput(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
-}
+const quickDateOptions = [
+  { label: "Сегодня", getValue: () => getTodayDateInputValue() },
+  { label: "Завтра", getValue: () => getDateAfterDays(1) },
+  { label: "Через неделю", getValue: () => getDateAfterDays(7) },
+  { label: "Через месяц", getValue: () => getDateAfterMonths(1) }
+];
+
+const repeatOptions: Array<{ label: string; value: RepeatRule }> = [
+  { label: "Не повторять", value: "none" },
+  { label: "Каждую неделю", value: "weekly" },
+  { label: "Каждый месяц", value: "monthly" },
+  { label: "Каждый год", value: "yearly" }
+];
 
 export function PaymentForm({
   initialPayment,
@@ -39,6 +52,7 @@ export function PaymentForm({
   const [amount, setAmount] = useState(initialPayment?.amount?.toString() ?? "");
   const [date, setDate] = useState(initialPayment?.date ?? getTodayDateInputValue());
   const [comment, setComment] = useState(initialPayment?.comment ?? "");
+  const [repeatRule, setRepeatRule] = useState<RepeatRule>(initialPayment?.repeatRule ?? "none");
   const [formError, setFormError] = useState<string | null>(null);
 
   async function handleSubmit() {
@@ -58,7 +72,7 @@ export function PaymentForm({
       return;
     }
 
-    if (!isValidDateInput(trimmedDate)) {
+    if (!isValidPaymentDate(trimmedDate)) {
       setFormError("Введите дату в формате ГГГГ-ММ-ДД.");
       return;
     }
@@ -72,7 +86,8 @@ export function PaymentForm({
       title: trimmedTitle,
       amount: parsedAmount,
       date: trimmedDate,
-      comment: comment.trim() || null
+      comment: comment.trim() || null,
+      repeatRule
     });
   }
 
@@ -102,6 +117,13 @@ export function PaymentForm({
           placeholder="2026-07-25"
           value={date}
         />
+        <View style={styles.chipGroup}>
+          {quickDateOptions.map((option) => (
+            <Pressable key={option.label} onPress={() => setDate(option.getValue())} style={styles.chip}>
+              <Text style={styles.chipText}>{option.label}</Text>
+            </Pressable>
+          ))}
+        </View>
         <AppTextInput
           label="Комментарий"
           multiline
@@ -110,6 +132,23 @@ export function PaymentForm({
           style={styles.commentInput}
           value={comment}
         />
+
+        <View style={styles.group}>
+          <Text style={styles.groupLabel}>Повторяемость</Text>
+          <View style={styles.chipGroup}>
+            {repeatOptions.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => setRepeatRule(option.value)}
+                style={[styles.chip, repeatRule === option.value && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, repeatRule === option.value && styles.chipTextActive]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
 
         {formError ? <Text style={styles.error}>{formError}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -134,6 +173,40 @@ const styles = StyleSheet.create({
   commentInput: {
     minHeight: 92,
     textAlignVertical: "top"
+  },
+  group: {
+    gap: theme.spacing.sm
+  },
+  groupLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: "500"
+  },
+  chipGroup: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.sm
+  },
+  chip: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing.md
+  },
+  chipActive: {
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: theme.colors.primary
+  },
+  chipText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  chipTextActive: {
+    color: theme.colors.primary
   },
   error: {
     color: theme.colors.danger,

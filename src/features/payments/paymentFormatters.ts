@@ -1,11 +1,8 @@
 import type { PaymentItem } from "@/types/payment";
+import { formatPaymentDate as formatLocalPaymentDate, getTodayDateString } from "@/features/payments/paymentDates";
 
 export function formatPaymentDate(date: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-    year: "numeric"
-  }).format(new Date(`${date}T00:00:00`));
+  return formatLocalPaymentDate(date);
 }
 
 export function formatPaymentAmount(payment: PaymentItem) {
@@ -21,5 +18,5 @@ export function formatPaymentAmount(payment: PaymentItem) {
 }
 
 export function getTodayDateInputValue() {
-  return new Date().toISOString().slice(0, 10);
+  return getTodayDateString();
 }

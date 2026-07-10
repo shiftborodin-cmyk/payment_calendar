@@ -21,6 +21,8 @@ export type PaymentItem = {
   status: PaymentStatus;
   repeatRule: RepeatRule;
   notificationOffsets: NotificationOffset[];
+  originalPaymentId?: string;
+  isGeneratedOccurrence?: boolean;
   createdAt: string;
   updatedAt: string;
 };

@@ -5,25 +5,30 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
 import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
+import {
+  expandPaymentOccurrences,
+  getDateValue,
+  isPaymentOverdue,
+  sortPaymentsByDate
+} from "@/features/payments/paymentOccurrences";
 import { deletePaymentItem, fetchPaymentItems, markPaymentItemPaid } from "@/features/payments/paymentsApi";
 import { AppButton } from "@/shared/ui/AppButton";
+import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { Card } from "@/shared/ui/Card";
 import { EmptyStateText } from "@/shared/ui/PaymentPlaceholderCard";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { theme } from "@/shared/theme/theme";
 import type { PaymentItem } from "@/types/payment";
 
-function getTodayDateValue() {
-  return new Date().toISOString().slice(0, 10);
-}
+type PaymentFilter = "all" | "unpaid" | "overdue" | "paid" | "repeating";
 
-function isPaymentOverdue(item: PaymentItem) {
-  return item.status !== "paid" && item.date < getTodayDateValue();
-}
-
-function sortByDate(items: PaymentItem[]) {
-  return [...items].sort((left, right) => left.date.localeCompare(right.date) || left.createdAt.localeCompare(right.createdAt));
-}
+const filterOptions: Array<{ label: string; value: PaymentFilter }> = [
+  { label: "Все", value: "all" },
+  { label: "Неоплаченные", value: "unpaid" },
+  { label: "Просроченные", value: "overdue" },
+  { label: "Оплаченные", value: "paid" },
+  { label: "Повторяющиеся", value: "repeating" }
+];
 
 export default function ListScreen() {
   const router = useRouter();
@@ -32,24 +37,60 @@ export default function ListScreen() {
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<PaymentFilter>("all");
+  const [search, setSearch] = useState("");
   const focusedRef = useRef(false);
   const loadingRef = useRef(false);
+  const expandedItems = useMemo(
+    () =>
+      expandPaymentOccurrences(items, {
+        startDate: "1970-01-01"
+      }),
+    [items]
+  );
+  const visibleItems = useMemo(() => {
+    const normalizedSearch = search.trim().toLocaleLowerCase("ru-RU");
+
+    return expandedItems.filter((item) => {
+      if (normalizedSearch && !item.title.toLocaleLowerCase("ru-RU").includes(normalizedSearch)) {
+        return false;
+      }
+
+      if (filter === "unpaid") {
+        return item.status !== "paid";
+      }
+
+      if (filter === "overdue") {
+        return isPaymentOverdue(item);
+      }
+
+      if (filter === "paid") {
+        return item.status === "paid";
+      }
+
+      if (filter === "repeating") {
+        return item.repeatRule !== "none" || Boolean(item.isGeneratedOccurrence);
+      }
+
+      return true;
+    });
+  }, [expandedItems, filter, search]);
   const groupedItems = useMemo(
     () => [
       {
         title: "Просроченные",
-        data: sortByDate(items.filter((item) => isPaymentOverdue(item)))
+        data: sortPaymentsByDate(visibleItems.filter((item) => isPaymentOverdue(item)))
       },
       {
         title: "Ближайшие",
-        data: sortByDate(items.filter((item) => item.status !== "paid" && !isPaymentOverdue(item)))
+        data: sortPaymentsByDate(visibleItems.filter((item) => item.status !== "paid" && !isPaymentOverdue(item)))
       },
       {
         title: "Оплаченные",
-        data: sortByDate(items.filter((item) => item.status === "paid"))
+        data: sortPaymentsByDate(visibleItems.filter((item) => item.status === "paid"))
       }
     ],
-    [items]
+    [visibleItems]
   );
 
   const loadItems = useCallback(async () => {
@@ -150,6 +191,28 @@ export default function ListScreen() {
         <Text style={styles.addButtonText}>Добавить платёж</Text>
       </Pressable>
 
+      <AppTextInput
+        autoCapitalize="none"
+        label="Поиск"
+        onChangeText={setSearch}
+        placeholder="Название платежа"
+        value={search}
+      />
+
+      <View style={styles.filterRow}>
+        {filterOptions.map((option) => (
+          <Pressable
+            key={option.value}
+            onPress={() => setFilter(option.value)}
+            style={[styles.filterChip, filter === option.value && styles.filterChipActive]}
+          >
+            <Text style={[styles.filterText, filter === option.value && styles.filterTextActive]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       {error ? (
         <Card style={styles.errorCard}>
           <Text style={styles.errorTitle}>Не удалось загрузить платежи</Text>
@@ -158,7 +221,7 @@ export default function ListScreen() {
         </Card>
       ) : null}
 
-      {!error && items.length === 0 ? (
+      {!error && visibleItems.length === 0 ? (
         <Card style={styles.emptyCard}>
           <View style={styles.emptyIconWrap}>
             <Ionicons color={theme.colors.primary} name="receipt-outline" size={24} />
@@ -166,11 +229,13 @@ export default function ListScreen() {
           <View style={styles.emptyTextWrap}>
             <Text style={styles.emptyTitle}>Пока без записей</Text>
             <Text style={styles.emptyDescription}>
-              Когда вы добавите платежи, они появятся здесь по порядку дат.
+              {items.length === 0
+                ? "Когда вы добавите платежи, они появятся здесь по порядку дат."
+                : "По текущему поиску и фильтрам ничего не найдено."}
             </Text>
           </View>
         </Card>
-      ) : items.length > 0 ? (
+      ) : visibleItems.length > 0 ? (
         <View style={styles.list}>
           {groupedItems.map((group) =>
             group.data.length > 0 ? (
@@ -178,6 +243,8 @@ export default function ListScreen() {
                 <Text style={styles.sectionTitle}>{group.title}</Text>
                 {group.data.map((item) => {
                   const overdue = isPaymentOverdue(item);
+                  const sourcePaymentId = item.originalPaymentId ?? item.id;
+                  const isRepeating = item.repeatRule !== "none" || Boolean(item.isGeneratedOccurrence);
 
                   return (
                     <Card key={item.id} style={[styles.paymentCard, overdue && styles.overdueCard]}>
@@ -201,6 +268,7 @@ export default function ListScreen() {
                           </Text>
                           <Text style={styles.paymentMeta}>{formatPaymentDate(item.date)}</Text>
                           {overdue ? <Text style={styles.overdueText}>Просрочен</Text> : null}
+                          {isRepeating ? <Text style={styles.repeatText}>Повторяется</Text> : null}
                         </View>
                         <Text style={[styles.paymentAmount, item.status === "paid" && styles.paidText]}>
                           {formatPaymentAmount(item)}
@@ -210,31 +278,44 @@ export default function ListScreen() {
                       {item.comment ? <Text style={styles.comment}>{item.comment}</Text> : null}
 
                       <View style={styles.actions}>
-                        <Pressable
-                          onPress={() => router.push({ pathname: "/edit-payment/[id]", params: { id: item.id } })}
-                          style={styles.smallButton}
-                        >
-                          <Text style={styles.smallButtonText}>Редактировать</Text>
-                        </Pressable>
-                        <Pressable
-                          disabled={item.status === "paid" || actionId === item.id}
-                          onPress={() => handleMarkPaid(item)}
-                          style={[
-                            styles.smallButton,
-                            item.status === "paid" && styles.smallButtonDisabled
-                          ]}
-                        >
-                          <Text style={styles.smallButtonText}>
-                            {item.status === "paid" ? "Оплачено" : "Оплатить"}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          disabled={actionId === item.id}
-                          onPress={() => handleDelete(item)}
-                          style={[styles.smallButton, styles.deleteButton]}
-                        >
-                          <Text style={[styles.smallButtonText, styles.deleteButtonText]}>Удалить</Text>
-                        </Pressable>
+                        {item.isGeneratedOccurrence ? (
+                          <Pressable
+                            onPress={() =>
+                              router.push({ pathname: "/edit-payment/[id]", params: { id: sourcePaymentId } })
+                            }
+                            style={styles.smallButton}
+                          >
+                            <Text style={styles.smallButtonText}>Редактировать исходный платёж</Text>
+                          </Pressable>
+                        ) : (
+                          <>
+                            <Pressable
+                              onPress={() => router.push({ pathname: "/edit-payment/[id]", params: { id: item.id } })}
+                              style={styles.smallButton}
+                            >
+                              <Text style={styles.smallButtonText}>Редактировать</Text>
+                            </Pressable>
+                            <Pressable
+                              disabled={item.status === "paid" || actionId === item.id}
+                              onPress={() => handleMarkPaid(item)}
+                              style={[
+                                styles.smallButton,
+                                item.status === "paid" && styles.smallButtonDisabled
+                              ]}
+                            >
+                              <Text style={styles.smallButtonText}>
+                                {item.status === "paid" ? "Оплачено" : "Оплатить"}
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              disabled={actionId === item.id}
+                              onPress={() => handleDelete(item)}
+                              style={[styles.smallButton, styles.deleteButton]}
+                            >
+                              <Text style={[styles.smallButtonText, styles.deleteButtonText]}>Удалить</Text>
+                            </Pressable>
+                          </>
+                        )}
                       </View>
                     </Card>
                   );
@@ -272,6 +353,31 @@ const styles = StyleSheet.create({
     color: theme.colors.background,
     fontSize: 16,
     fontWeight: "700"
+  },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.sm
+  },
+  filterChip: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm
+  },
+  filterChipActive: {
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: theme.colors.primary
+  },
+  filterText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  filterTextActive: {
+    color: theme.colors.primary
   },
   errorCard: {
     gap: theme.spacing.sm
@@ -359,6 +465,11 @@ const styles = StyleSheet.create({
   },
   overdueText: {
     color: theme.colors.danger,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  repeatText: {
+    color: theme.colors.primary,
     fontSize: 12,
     fontWeight: "700"
   },
