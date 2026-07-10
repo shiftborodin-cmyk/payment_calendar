@@ -394,19 +394,14 @@ export default function ListScreen() {
                           <Text style={[styles.paymentTitle, item.status === "paid" && styles.paidText]}>
                             {item.title}
                           </Text>
-                          <Text style={styles.paymentMeta}>{formatPaymentDate(item.date)}</Text>
-                          {category ? (
-                            <View style={styles.categoryBadge}>
-                              <Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={14} />
-                              <Text style={styles.categoryText}>{category.name}</Text>
-                            </View>
-                          ) : null}
-                          {item.type === "income" ? <Text style={styles.incomeText}>{translate("Доход", "Income")}</Text> : null}
-                          {item.type === "income" && item.status === "paid" ? (
-                            <Text style={styles.receivedText}>{translate("Получено", "Received")}</Text>
-                          ) : null}
-                          {overdue ? <Text style={styles.overdueText}>{translate("Просрочен", "Overdue")}</Text> : null}
-                          {isRepeating ? <Text style={styles.repeatText}>{translate("Повторяется", "Repeating")}</Text> : null}
+                          <View style={styles.paymentMetaRow}>
+                            <Text style={styles.paymentMeta}>{formatPaymentDate(item.date)}</Text>
+                            {category ? <View style={styles.categoryBadge}><Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={13} /><Text style={styles.categoryText}>{category.name}</Text></View> : null}
+                            {item.type === "income" ? <Text style={styles.incomeText}>{translate("Доход", "Income")}</Text> : null}
+                            {item.type === "income" && item.status === "paid" ? <Text style={styles.receivedText}>{translate("Получено", "Received")}</Text> : null}
+                            {overdue ? <Text style={styles.overdueText}>{translate("Просрочен", "Overdue")}</Text> : null}
+                            {isRepeating ? <Text style={styles.repeatText}>{translate("Повторяется", "Repeating")}</Text> : null}
+                          </View>
                         </View>
                         <Text style={[styles.paymentAmount, item.status === "paid" && styles.paidText]}>
                           {formatPaymentAmount(item)}
@@ -431,7 +426,7 @@ export default function ListScreen() {
                               onPress={() => router.push({ pathname: "/edit-payment/[id]", params: { id: item.id } })}
                               style={styles.smallButton}
                             >
-                              <Text style={styles.smallButtonText}>{translate("Редактировать", "Edit")}</Text>
+                              <Text style={styles.smallButtonText}>{translate("Изменить", "Edit")}</Text>
                             </Pressable>
                             <Pressable
                               disabled={actionId === item.id}
@@ -615,7 +610,8 @@ function createStyles(theme: AppTheme) {
     marginTop: theme.spacing.xs
   },
   paymentCard: {
-    gap: theme.spacing.md
+    gap: theme.spacing.sm,
+    padding: 12
   },
   overdueCard: {
     borderColor: theme.colors.danger
@@ -623,19 +619,25 @@ function createStyles(theme: AppTheme) {
   paymentTopRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: theme.spacing.md
+    gap: theme.spacing.sm
   },
   paymentIconWrap: {
     alignItems: "center",
     backgroundColor: theme.colors.primarySoft,
     borderRadius: theme.radius.md,
-    height: 44,
+    height: 38,
     justifyContent: "center",
-    width: 44
+    width: 38
   },
   paymentMain: {
     flex: 1,
-    gap: 3
+    gap: 4
+  },
+  paymentMetaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7
   },
   paymentTitle: {
     color: theme.colors.text,

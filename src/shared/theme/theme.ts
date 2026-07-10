@@ -54,9 +54,9 @@ const darkBase: Omit<ThemeColors, "primary" | "primarySoft"> = {
 };
 
 const lightBase: Omit<ThemeColors, "primary" | "primarySoft"> = {
-  background: "#EEF2EE",
-  surface: "#E5EBE6",
-  surfaceElevated: "#FAFBF8",
+  background: "#E9EDE9",
+  surface: "#DDE3DE",
+  surfaceElevated: "#E4E9E5",
   text: "#152019",
   textMuted: "#68776E",
   border: "#D1DAD2",
@@ -69,18 +69,19 @@ function getPrimarySoft(mode: AppThemeMode, accent: AppAccentColor) {
     return accent === "white" ? "#29332E" : `${accentColors[accent]}26`;
   }
 
-  return accent === "white" ? "#DDE4DE" : `${accentColors[accent]}30`;
+  return accent === "white" ? "#D3DAD4" : `${accentColors[accent]}30`;
 }
 
 export function createAppTheme(mode: AppThemeMode, accent: AppAccentColor): AppTheme {
   const base = mode === "light" ? lightBase : darkBase;
+  const primary = mode === "light" && accent === "white" ? "#56635B" : accentColors[accent];
 
   return {
     mode,
     accent,
     colors: {
       ...base,
-      primary: accentColors[accent],
+      primary,
       primarySoft: getPrimarySoft(mode, accent)
     },
     radius: {

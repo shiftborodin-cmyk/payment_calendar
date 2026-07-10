@@ -381,6 +381,7 @@ export default function CalendarScreen() {
               onPress={() => handleSelectDate(dateString)}
               style={[
                 styles.weekCard,
+                dayPayments.length === 0 && styles.weekCardEmpty,
                 forecast?.isNegative && styles.weekCardNegative,
                 isSelected && styles.weekCardActive
               ]}
@@ -770,6 +771,11 @@ function createStyles(theme: AppTheme) {
     minHeight: 96,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 10
+  },
+  weekCardEmpty: {
+    gap: 0,
+    minHeight: 48,
+    paddingVertical: 7
   },
   weekCardActive: {
     backgroundColor: theme.colors.primarySoft,

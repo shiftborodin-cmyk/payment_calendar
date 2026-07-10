@@ -35,6 +35,7 @@ export default function SettingsScreen() {
   const [openingBalance, setOpeningBalance] = useState(String(settings.openingBalance));
   const [themeMode, setThemeMode] = useState<AppThemeMode>(settings.themeMode);
   const [accentColor, setAccentColor] = useState<AppAccentColor>(settings.accentColor);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setDisplayName(settings.displayName);
@@ -44,6 +45,12 @@ export default function SettingsScreen() {
     setThemeMode(settings.themeMode);
     setAccentColor(settings.accentColor);
   }, [settings]);
+
+  useEffect(() => {
+    if (!savedMessage) return;
+    const timeout = setTimeout(() => setSavedMessage(null), 2200);
+    return () => clearTimeout(timeout);
+  }, [savedMessage]);
 
   async function handleSaveSettings() {
     setLoading(true);
@@ -64,7 +71,7 @@ export default function SettingsScreen() {
         themeMode,
         accentColor
       });
-      Alert.alert(translate("Готово", "Done"), translate("Настройки сохранены.", "Settings saved."));
+      setSavedMessage(translate("Настройки сохранены", "Settings saved"));
     } catch (error) {
       Alert.alert(
         translate("Ошибка", "Error"),
@@ -129,15 +136,24 @@ export default function SettingsScreen() {
         <Text style={styles.subtitle}>{translate("Параметры приложения и аккаунта", "App and account preferences")}</Text>
       </View>
 
-      <Card style={styles.accountCard}>
-        <Text style={styles.label}>{translate("Аккаунт", "Account")}</Text>
-        <Text style={styles.email}>{user?.email ?? "—"}</Text>
-        <Text style={styles.accountHint}>{translate("Личные платежи будут привязаны к этому аккаунту.", "Local payments are linked to this account on this device.")}</Text>
-      </Card>
+      {savedMessage ? (
+        <View style={styles.savedToast}>
+          <Ionicons color={theme.colors.text} name="checkmark-circle-outline" size={18} />
+          <Text style={styles.savedToastText}>{savedMessage}</Text>
+        </View>
+      ) : null}
 
       <Card style={styles.preferencesCard}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{translate("Профиль", "Profile")}</Text>
+          <View style={styles.profileIdentity}>
+            <View style={styles.profileIcon}>
+              <Ionicons color={theme.colors.primary} name="person-outline" size={20} />
+            </View>
+            <View style={styles.profileText}>
+              <Text style={styles.sectionTitle}>{settings.displayName.trim() || translate("Профиль", "Profile")}</Text>
+              <Text numberOfLines={1} style={styles.email}>{user?.email ?? "—"}</Text>
+            </View>
+          </View>
           {!editingName ? (
             <Pressable
               accessibilityLabel={translate("Редактировать имя", "Edit name")}
@@ -168,10 +184,7 @@ export default function SettingsScreen() {
               />
             </View>
           </>
-        ) : (
-          <Text style={styles.displayName}>{settings.displayName.trim() || translate("Имя не указано", "Name not set")}</Text>
-        )}
-        <Text style={styles.hint}>{translate("Если оставить поле пустым, будет показана часть email.", "If left empty, part of your email will be shown.")}</Text>
+        ) : null}
       </Card>
 
       <Card style={styles.preferencesCard}>
@@ -277,7 +290,7 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <AppButton loading={loading} onPress={handleSignOut} title={translate("Выйти", "Sign out")} variant="secondary" />
+      <AppButton icon="log-out-outline" loading={loading} onPress={handleSignOut} title={translate("Выйти", "Sign out")} variant="danger" />
     </ScreenContainer>
   );
 }
@@ -297,9 +310,6 @@ function createStyles(theme: AppTheme) {
     color: theme.colors.textMuted,
     fontSize: 15
   },
-  accountCard: {
-    gap: theme.spacing.xs
-  },
   label: {
     color: theme.colors.textMuted,
     fontSize: 13,
@@ -310,17 +320,12 @@ function createStyles(theme: AppTheme) {
     fontSize: 16,
     fontWeight: "600"
   },
-  accountHint: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: theme.spacing.xs
-  },
   menu: {
     gap: theme.spacing.sm
   },
   preferencesCard: {
-    gap: theme.spacing.sm
+    gap: theme.spacing.sm,
+    padding: 13
   },
   sectionTitle: {
     color: theme.colors.text,
@@ -331,6 +336,41 @@ function createStyles(theme: AppTheme) {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between"
+  },
+  profileIdentity: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: theme.spacing.sm
+  },
+  profileIcon: {
+    alignItems: "center",
+    backgroundColor: theme.colors.primarySoft,
+    borderRadius: 20,
+    height: 40,
+    justifyContent: "center",
+    width: 40
+  },
+  profileText: {
+    flex: 1,
+    gap: 2
+  },
+  savedToast: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10
+  },
+  savedToastText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: "700"
   },
   editNameButton: {
     alignItems: "center",

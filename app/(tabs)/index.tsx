@@ -166,14 +166,18 @@ export default function HomeScreen() {
 
         {nextPayment ? (
           <View style={styles.nextPaymentSummary}>
-            <Text style={styles.nextPaymentLabel}>{formatPaymentDate(nextPayment.date)}</Text>
-            <Text style={styles.nextPaymentValue}>{nextPayment.title}</Text>
-            {nextPaymentCategory ? (
-              <View style={styles.categoryBadge}>
-                <Ionicons color={nextPaymentCategory.color} name={nextPaymentCategory.icon as keyof typeof Ionicons.glyphMap} size={15} />
-                <Text style={styles.categoryText}>{nextPaymentCategory.name}</Text>
+            <View style={styles.nextPaymentMain}>
+              <Text numberOfLines={1} style={styles.nextPaymentValue}>{nextPayment.title}</Text>
+              <View style={styles.nextPaymentMetaRow}>
+                <Text style={styles.nextPaymentLabel}>{formatPaymentDate(nextPayment.date)}</Text>
+                {nextPaymentCategory ? (
+                  <View style={styles.categoryBadge}>
+                    <Ionicons color={nextPaymentCategory.color} name={nextPaymentCategory.icon as keyof typeof Ionicons.glyphMap} size={14} />
+                    <Text numberOfLines={1} style={styles.categoryText}>{nextPaymentCategory.name}</Text>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
+            </View>
             <Text style={styles.nextPaymentAmount}>{formatPaymentAmount(nextPayment)}</Text>
           </View>
         ) : error ? (
@@ -203,12 +207,12 @@ export default function HomeScreen() {
       </Card>
 
       <View style={styles.addActions}>
-        <View style={styles.addAction}>
-          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Расход", "Expense")} />
-        </View>
         {settings.includeIncome ? <View style={styles.addAction}>
           <AppButton icon="add" onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Доход", "Income")} variant="secondary" />
         </View> : null}
+        <View style={styles.addAction}>
+          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Расход", "Expense")} />
+        </View>
       </View>
 
       {settings.includeIncome ? (
@@ -269,16 +273,14 @@ export default function HomeScreen() {
       <Card style={styles.monthCard}>
         <View style={styles.monthRow}>
           <View style={styles.monthTextBlock}>
-            <Text style={styles.monthLabel}>{translate("В этом месяце платежей", "Payments this month")}</Text>
-            <Text style={styles.monthCount}>{currentMonthExpenses.length}</Text>
+            <Text style={styles.monthLabel}>{translate("В этом месяце платежей", "Payments this month")} <Text style={styles.monthCount}>{currentMonthExpenses.length}</Text></Text>
           </View>
           <Text style={styles.monthValue}>{formatCurrency(currentMonthExpenseTotal)}</Text>
         </View>
         <View style={styles.monthDivider} />
         <View style={styles.monthRow}>
           <View style={styles.monthTextBlock}>
-            <Text style={styles.monthLabel}>{translate("Оплачено в этом месяце", "Paid this month")}</Text>
-            <Text style={styles.monthCount}>{currentMonthPaidExpenses.length}</Text>
+            <Text style={styles.monthLabel}>{translate("Оплачено в этом месяце", "Paid this month")} <Text style={styles.monthCount}>{currentMonthPaidExpenses.length}</Text></Text>
           </View>
           <Text style={styles.monthValue}>{formatCurrency(currentMonthPaidTotal)}</Text>
         </View>
@@ -286,8 +288,7 @@ export default function HomeScreen() {
           <View style={styles.monthDivider} />
           <View style={styles.monthRow}>
             <View style={styles.monthTextBlock}>
-              <Text style={styles.monthLabel}>{translate("Доходы в этом месяце", "Income this month")}</Text>
-              <Text style={styles.monthCount}>{currentMonthIncome.length}</Text>
+              <Text style={styles.monthLabel}>{translate("Доходы в этом месяце", "Income this month")} <Text style={styles.monthCount}>{currentMonthIncome.length}</Text></Text>
             </View>
             <Text style={styles.incomeMonthValue}>{formatCurrency(currentMonthIncomeTotal)}</Text>
           </View>
@@ -355,12 +356,25 @@ function createStyles(theme: AppTheme) {
     fontWeight: "600"
   },
   nextPaymentSummary: {
+    alignItems: "center",
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    gap: theme.spacing.xs,
-    padding: 7
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    justifyContent: "space-between",
+    padding: 9
+  },
+  nextPaymentMain: {
+    flex: 1,
+    gap: 3
+  },
+  nextPaymentMetaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.sm
   },
   nextPaymentLabel: {
     color: theme.colors.textMuted,
@@ -444,7 +458,6 @@ function createStyles(theme: AppTheme) {
   },
   monthTextBlock: {
     flex: 1,
-    gap: 2
   },
   monthCount: {
     color: theme.colors.primary,
