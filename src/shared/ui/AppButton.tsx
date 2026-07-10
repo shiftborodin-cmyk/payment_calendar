@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type PressableProps } from "react-native";
 
 import { theme } from "@/shared/theme/theme";
 
@@ -6,12 +7,14 @@ type AppButtonProps = PressableProps & {
   title: string;
   loading?: boolean;
   variant?: "primary" | "secondary";
+  icon?: keyof typeof Ionicons.glyphMap;
 };
 
 export function AppButton({
   title,
   loading = false,
   variant = "primary",
+  icon,
   disabled,
   ...props
 }: AppButtonProps) {
@@ -31,7 +34,16 @@ export function AppButton({
       {loading ? (
         <ActivityIndicator color={variant === "secondary" ? theme.colors.text : theme.colors.background} />
       ) : (
-        <Text style={[styles.title, variant === "secondary" && styles.titleSecondary]}>{title}</Text>
+        <View style={styles.content}>
+          {icon ? (
+            <Ionicons
+              color={variant === "secondary" ? theme.colors.text : theme.colors.background}
+              name={icon}
+              size={19}
+            />
+          ) : null}
+          <Text style={[styles.title, variant === "secondary" && styles.titleSecondary]}>{title}</Text>
+        </View>
       )}
     </Pressable>
   );
@@ -47,6 +59,11 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: {
     backgroundColor: theme.colors.primary
+  },
+  content: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.sm
   },
   buttonSecondary: {
     backgroundColor: theme.colors.primarySoft,

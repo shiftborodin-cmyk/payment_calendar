@@ -42,8 +42,8 @@ import type { PaymentItem } from "@/types/payment";
 
 type CalendarView = "month" | "week";
 
-const weekDaysRu = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-const weekDaysEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const weekDaysRu = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const weekDaysEn = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function getMonthLabel(dateString: string) {
   return new Intl.DateTimeFormat(getCurrentLocale(), {
@@ -75,8 +75,22 @@ function getWeekDates(dateString: string) {
   return Array.from({ length: 7 }, (_, index) => addDaysToDateString(dateString, index));
 }
 
+function getWeekDayLabel(dateString: string, labels: string[]) {
+  const nativeIndex = parsePaymentDate(dateString).getDay();
+  const mondayFirstIndex = nativeIndex === 0 ? 6 : nativeIndex - 1;
+
+  return labels[mondayFirstIndex];
+}
+
 function sumPayments(payments: PaymentItem[]) {
   return payments.reduce((sum, payment) => sum + (payment.amount ?? 0), 0);
+}
+
+function sumPaymentsNet(payments: PaymentItem[]) {
+  return payments.reduce((sum, payment) => {
+    const amount = payment.amount ?? 0;
+    return sum + (payment.type === "income" ? amount : -amount);
+  }, 0);
 }
 
 function formatCurrency(value: number) {
@@ -118,7 +132,7 @@ export default function CalendarScreen() {
     () => getPaymentsForDate(visibleItems, selectedDate),
     [selectedDate, visibleItems]
   );
-  const selectedTotal = sumPayments(selectedPayments);
+  const selectedTotal = settings.includeIncome ? sumPaymentsNet(selectedPayments) : sumPayments(selectedPayments);
   const selectedMonthForecast = useMemo(
     () =>
       settings.includeIncome
@@ -236,6 +250,9 @@ export default function CalendarScreen() {
   function handleSelectDate(dateString: string) {
     setSelectedDate(dateString);
     setDesiredDayOfMonth(getDayOfMonth(dateString));
+    if (viewRef.current === "week") {
+      setWeekPeriodStart(dateString);
+    }
   }
 
   function getModeLabel() {
@@ -243,7 +260,7 @@ export default function CalendarScreen() {
       return translate("Загружаю платежи...", "Loading payments...");
     }
 
-    return view === "month" ? translate("Обзор месяца", "Month overview") : translate("7 дней от выбранной даты", "7 days from selected date");
+    return view === "month" ? translate("Обзор месяца", "Month overview") : translate("7 дней от выбранного дня", "7 days from selected day");
   }
 
   function getPeriodPaymentDates(periodDate: string) {
@@ -317,7 +334,9 @@ export default function CalendarScreen() {
 
             const day = getDayOfMonth(dateString);
             const isSelected = dateString === selectedDate;
+            const isToday = dateString === getTodayDateString();
             const isNegative = periodForecast?.get(dateString)?.isNegative === true;
+            const dayPayments = getPaymentsForDate(visibleItems, dateString);
 
             return (
               <Pressable
@@ -326,11 +345,16 @@ export default function CalendarScreen() {
                 style={[
                   styles.dayCell,
                   isNegative && styles.dayCellNegative,
+                  isToday && styles.dayCellToday,
                   isSelected && styles.dayCellActive
                 ]}
               >
                 <Text style={[styles.dayText, isSelected && styles.dayTextActive]}>{day}</Text>
-                {markedDates.has(dateString) ? <View style={styles.dayDot} /> : null}
+                {dayPayments.length > 0 ? (
+                  <Text numberOfLines={1} style={[styles.dayOperationCount, isSelected && styles.dayTextActive]}>
+                    {dayPayments.length}
+                  </Text>
+                ) : null}
               </Pressable>
             );
           })}
@@ -348,7 +372,6 @@ export default function CalendarScreen() {
           const forecast = settings.includeIncome
             ? getForecastForDate(visibleItems, dateString, settings.openingBalance)
             : null;
-          const weekDayIndex = parsePaymentDate(dateString).getDay();
 
           return (
             <Pressable
@@ -362,7 +385,9 @@ export default function CalendarScreen() {
             >
               <View style={styles.weekCardHeader}>
                 <View>
-                  <Text style={[styles.weekCardDay, isSelected && styles.weekCardTextActive]}>{weekDays[weekDayIndex]}</Text>
+                  <Text style={[styles.weekCardDay, isSelected && styles.weekCardTextActive]}>
+                    {getWeekDayLabel(dateString, weekDays)}
+                  </Text>
                   <Text style={[styles.weekCardDate, isSelected && styles.weekCardTextActive]}>
                     {getShortDateLabel(dateString)}
                   </Text>
@@ -370,7 +395,7 @@ export default function CalendarScreen() {
                 <Text style={styles.weekCardSummary}>
                   {dayPayments.length === 0
                     ? translate("Нет операций", "No operations")
-                    : `${dayPayments.length} · ${formatCurrency(sumPayments(dayPayments))}`}
+                    : `${dayPayments.length} · ${formatCurrency(settings.includeIncome ? sumPaymentsNet(dayPayments) : sumPayments(dayPayments))}`}
                 </Text>
               </View>
               {dayPayments.length > 0 ? (
@@ -451,14 +476,14 @@ export default function CalendarScreen() {
       />
 
       <View style={styles.monthControls}>
-        <Pressable onPress={() => navigate(-1)} style={styles.monthButton}>
-          <Text style={styles.monthButtonText}>{translate("Предыдущий", "Previous")}</Text>
+        <Pressable accessibilityLabel={translate("Предыдущий период", "Previous period")} onPress={() => navigate(-1)} style={styles.monthButton}>
+          <Ionicons color={theme.colors.primary} name="chevron-back" size={20} />
         </Pressable>
-        <Pressable onPress={() => navigate(0)} style={styles.monthButton}>
+        <Pressable onPress={() => navigate(0)} style={[styles.monthButton, styles.todayButton]}>
           <Text style={styles.monthButtonText}>{translate("Сегодня", "Today")}</Text>
         </Pressable>
-        <Pressable onPress={() => navigate(1)} style={styles.monthButton}>
-          <Text style={styles.monthButtonText}>{translate("Следующий", "Next")}</Text>
+        <Pressable accessibilityLabel={translate("Следующий период", "Next period")} onPress={() => navigate(1)} style={styles.monthButton}>
+          <Ionicons color={theme.colors.primary} name="chevron-forward" size={20} />
         </Pressable>
       </View>
 
@@ -493,7 +518,9 @@ export default function CalendarScreen() {
         <Text style={styles.sectionTitle}>{formatPaymentDate(selectedDate)}</Text>
         <Card style={styles.daySummaryCard}>
           <Text style={styles.daySummaryText}>{translate("Операций", "Operations")}: {selectedPayments.length}</Text>
-          <Text style={styles.daySummaryText}>{translate("Сумма", "Total")}: {formatCurrency(selectedTotal)}</Text>
+          <Text style={styles.daySummaryText}>
+            {settings.includeIncome ? translate("Итог", "Net") : translate("Сумма", "Total")}: {formatCurrency(selectedTotal)}
+          </Text>
         </Card>
         {settings.includeIncome && selectedForecast ? (
           <Text style={[styles.forecastText, selectedForecast.isNegative && styles.forecastTextNegative]}>
@@ -561,7 +588,9 @@ export default function CalendarScreen() {
               <Card key={dateString} style={styles.periodDateCard}>
                 <View style={styles.periodDateHeader}>
                   <Text style={styles.periodDateTitle}>{formatPaymentDate(dateString)}</Text>
-                  <Text style={styles.periodDateTotal}>{formatCurrency(sumPayments(datePayments))}</Text>
+                  <Text style={styles.periodDateTotal}>
+                    {formatCurrency(settings.includeIncome ? sumPaymentsNet(datePayments) : sumPayments(datePayments))}
+                  </Text>
                 </View>
                 {datePayments.map((payment) => {
                   const category = payment.categoryId ? categoriesById.get(payment.categoryId) : null;
@@ -609,17 +638,23 @@ const styles = StyleSheet.create({
     fontSize: 15
   },
   monthControls: {
+    alignItems: "center",
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: theme.spacing.sm
   },
   monthButton: {
+    alignItems: "center",
     backgroundColor: theme.colors.primarySoft,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm
+    height: 42,
+    justifyContent: "center",
+    width: 48
+  },
+  todayButton: {
+    flex: 1,
+    width: "auto"
   },
   monthButtonText: {
     color: theme.colors.primary,
@@ -628,13 +663,13 @@ const styles = StyleSheet.create({
   },
   calendarCard: {
     overflow: "hidden",
-    padding: theme.spacing.sm
+    padding: 10
   },
   carouselViewport: {
     overflow: "hidden"
   },
   carouselPage: {
-    gap: 6
+    gap: 5
   },
   calendarTopRow: {
     alignItems: "center",
@@ -646,13 +681,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: theme.colors.primarySoft,
     borderRadius: theme.radius.md,
-    height: 40,
+    height: 34,
     justifyContent: "center",
-    width: 40
+    width: 34
   },
   monthLabel: {
     color: theme.colors.text,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "600",
     textTransform: "capitalize"
   },
@@ -667,7 +702,7 @@ const styles = StyleSheet.create({
   weekDay: {
     color: theme.colors.textMuted,
     flex: 1,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     textAlign: "center"
   },
@@ -691,6 +726,10 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary,
     borderWidth: 1
   },
+  dayCellToday: {
+    borderColor: theme.colors.textMuted,
+    borderWidth: 1
+  },
   dayCellNegative: {
     backgroundColor: "rgba(210, 112, 112, 0.16)"
   },
@@ -703,6 +742,12 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: "700"
   },
+  dayOperationCount: {
+    color: theme.colors.textMuted,
+    fontSize: 10,
+    fontWeight: "800",
+    marginTop: 2
+  },
   dayDot: {
     backgroundColor: theme.colors.primary,
     borderRadius: 3,
@@ -711,16 +756,17 @@ const styles = StyleSheet.create({
     width: 6
   },
   weekCards: {
-    gap: theme.spacing.sm
+    gap: 6
   },
   weekCard: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    gap: theme.spacing.sm,
-    minHeight: 92,
-    padding: theme.spacing.sm
+    gap: 7,
+    minHeight: 96,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 10
   },
   weekCardActive: {
     backgroundColor: theme.colors.primarySoft,

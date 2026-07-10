@@ -287,10 +287,10 @@ export default function HomeScreen() {
 
       <View style={styles.addActions}>
         <View style={styles.addAction}>
-          <AppButton onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Добавить расход", "Add expense")} />
+          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Добавить расход", "Add expense")} />
         </View>
         {settings.includeIncome ? <View style={styles.addAction}>
-          <AppButton onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Добавить доход", "Add income")} variant="secondary" />
+          <AppButton icon="add" onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Добавить доход", "Add income")} variant="secondary" />
         </View> : null}
       </View>
     </ScreenContainer>

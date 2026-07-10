@@ -11,6 +11,7 @@ import { getTodayDateInputValue } from "@/features/payments/paymentFormatters";
 import { getDateAfterDays, getDateAfterMonths } from "@/features/payments/paymentOccurrences";
 import { AppButton } from "@/shared/ui/AppButton";
 import { AppTextInput } from "@/shared/ui/AppTextInput";
+import { PaymentDatePicker } from "@/shared/ui/PaymentDatePicker";
 import { theme } from "@/shared/theme/theme";
 import type { PaymentItem, PaymentType, RepeatRule } from "@/types/payment";
 
@@ -36,17 +37,17 @@ type PaymentFormProps = {
 };
 
 const quickDateOptions = [
-  { label: "Сегодня", getValue: () => getTodayDateInputValue() },
-  { label: "Завтра", getValue: () => getDateAfterDays(1) },
-  { label: "Через неделю", getValue: () => getDateAfterDays(7) },
-  { label: "Через месяц", getValue: () => getDateAfterMonths(1) }
+  { ru: "Сегодня", en: "Today", getValue: () => getTodayDateInputValue() },
+  { ru: "Завтра", en: "Tomorrow", getValue: () => getDateAfterDays(1) },
+  { ru: "Через неделю", en: "In a week", getValue: () => getDateAfterDays(7) },
+  { ru: "Через месяц", en: "In a month", getValue: () => getDateAfterMonths(1) }
 ];
 
-const repeatOptions: Array<{ label: string; value: RepeatRule }> = [
-  { label: "Не повторять", value: "none" },
-  { label: "Каждую неделю", value: "weekly" },
-  { label: "Каждый месяц", value: "monthly" },
-  { label: "Каждый год", value: "yearly" }
+const repeatOptions: Array<{ ru: string; en: string; value: RepeatRule }> = [
+  { ru: "Не повторять", en: "Do not repeat", value: "none" },
+  { ru: "Каждую неделю", en: "Every week", value: "weekly" },
+  { ru: "Каждый месяц", en: "Every month", value: "monthly" },
+  { ru: "Каждый год", en: "Every year", value: "yearly" }
 ];
 
 export function PaymentForm({
@@ -64,6 +65,8 @@ export function PaymentForm({
   const [title, setTitle] = useState(initialPayment?.title ?? "");
   const [amount, setAmount] = useState(initialPayment?.amount?.toString() ?? "");
   const [date, setDate] = useState(initialPayment?.date ?? getTodayDateInputValue());
+  const [calendarMonth, setCalendarMonth] = useState(initialPayment?.date ?? getTodayDateInputValue());
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [comment, setComment] = useState(initialPayment?.comment ?? "");
   const [repeatRule, setRepeatRule] = useState<RepeatRule>(initialPayment?.repeatRule ?? "none");
   const [categoryId, setCategoryId] = useState<string | null>(initialPayment?.categoryId ?? null);
@@ -123,17 +126,17 @@ export function PaymentForm({
     const parsedAmount = normalizedAmount ? Number(normalizedAmount) : null;
 
     if (!trimmedTitle) {
-      setFormError("Введите название платежа.");
+      setFormError(translate("Введите название операции.", "Enter an operation name."));
       return;
     }
 
     if (!isValidPaymentDate(trimmedDate)) {
-      setFormError("Введите дату в формате ГГГГ-ММ-ДД.");
+      setFormError(translate("Выберите корректную дату.", "Choose a valid date."));
       return;
     }
 
     if (parsedAmount !== null && (!Number.isFinite(parsedAmount) || parsedAmount < 0)) {
-      setFormError("Введите сумму числом не меньше нуля или оставьте поле пустым.");
+      setFormError(translate("Введите сумму числом не меньше нуля или оставьте поле пустым.", "Enter a non-negative amount or leave it empty."));
       return;
     }
 
@@ -176,25 +179,33 @@ export function PaymentForm({
           </View>
         ) : null}
         <AppTextInput
-          label="Название"
+          label={translate("Название", "Title")}
           onChangeText={setTitle}
-          placeholder="Например, аренда"
+          placeholder={translate("Например, аренда", "For example, rent")}
           value={title}
         />
         <AppTextInput
           keyboardType="decimal-pad"
-          label="Сумма"
+          label={translate("Сумма", "Amount")}
           onChangeText={setAmount}
           placeholder="45000"
           value={amount}
         />
-        <AppTextInput
-          autoCapitalize="none"
-          label="Дата"
-          onChangeText={setDate}
-          placeholder="2026-07-25"
-          value={date}
-        />
+        <View style={styles.group}>
+          <Text style={styles.groupLabel}>{translate("Дата", "Date")}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setCalendarMonth(date);
+              setDatePickerVisible(true);
+            }}
+            style={({ pressed }) => [styles.dateButton, pressed && styles.dateButtonPressed]}
+          >
+            <Ionicons color={theme.colors.text} name="calendar-outline" size={20} />
+            <Text style={styles.dateButtonText}>{date}</Text>
+            <Text style={styles.dateButtonHint}>{translate("Выбрать", "Choose")}</Text>
+          </Pressable>
+        </View>
         <View style={styles.chipGroup}>
           {quickDateOptions.map((option) => (
             (() => {
@@ -203,34 +214,37 @@ export function PaymentForm({
 
               return (
                 <Pressable
-                  key={option.label}
-                  onPress={() => setDate(optionDate)}
+                  key={option.ru}
+                  onPress={() => {
+                    setDate(optionDate);
+                    setCalendarMonth(optionDate);
+                  }}
                   style={[styles.chip, isActive && styles.chipActive]}
                 >
-                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{option.label}</Text>
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{translate(option.ru, option.en)}</Text>
                 </Pressable>
               );
             })()
           ))}
         </View>
         <AppTextInput
-          label="Комментарий"
+          label={translate("Комментарий", "Comment")}
           multiline
           onChangeText={setComment}
-          placeholder="Любая заметка"
+          placeholder={translate("Любая заметка", "Any note")}
           style={styles.commentInput}
           value={comment}
         />
 
         {type === "expense" ? <View style={styles.group}>
-          <Text style={styles.groupLabel}>Категория</Text>
+          <Text style={styles.groupLabel}>{translate("Категория", "Category")}</Text>
           <View style={styles.chipGroup}>
             <Pressable
               onPress={() => setCategoryId(null)}
               style={[styles.chip, categoryId === null && styles.chipActive]}
             >
               <Text style={[styles.chipText, categoryId === null && styles.chipTextActive]}>
-                Без категории
+                {translate("Без категории", "No category")}
               </Text>
             </Pressable>
             {categories.map((category) => (
@@ -250,7 +264,7 @@ export function PaymentForm({
         </View> : null}
 
         <View style={styles.group}>
-          <Text style={styles.groupLabel}>Повторяемость</Text>
+          <Text style={styles.groupLabel}>{translate("Повторяемость", "Repeat")}</Text>
           <View style={styles.chipGroup}>
             {repeatOptions.map((option) => (
               <Pressable
@@ -259,7 +273,7 @@ export function PaymentForm({
                 style={[styles.chip, repeatRule === option.value && styles.chipActive]}
               >
                 <Text style={[styles.chipText, repeatRule === option.value && styles.chipTextActive]}>
-                  {option.label}
+                    {translate(option.ru, option.en)}
                 </Text>
               </Pressable>
             ))}
@@ -272,8 +286,20 @@ export function PaymentForm({
 
       <View style={styles.actions}>
         <AppButton loading={loading} onPress={handleSubmit} title={submitTitle} />
-        <AppButton onPress={onCancel} title="Отмена" variant="secondary" />
+        <AppButton onPress={onCancel} title={translate("Отмена", "Cancel")} variant="secondary" />
       </View>
+      <PaymentDatePicker
+        monthDate={calendarMonth}
+        onChangeMonth={setCalendarMonth}
+        onClose={() => setDatePickerVisible(false)}
+        onSelect={(nextDate) => {
+          setDate(nextDate);
+          setCalendarMonth(nextDate);
+          setDatePickerVisible(false);
+        }}
+        selectedDate={date}
+        visible={datePickerVisible}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -297,6 +323,31 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 14,
     fontWeight: "500"
+  },
+  dateButton: {
+    alignItems: "center",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    minHeight: 50,
+    paddingHorizontal: theme.spacing.md
+  },
+  dateButtonPressed: {
+    opacity: 0.82
+  },
+  dateButtonText: {
+    color: theme.colors.text,
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  dateButtonHint: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: "600"
   },
   chipGroup: {
     flexDirection: "row",

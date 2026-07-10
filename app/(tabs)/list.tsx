@@ -218,13 +218,24 @@ export default function ListScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>{translate("Список", "List")}</Text>
-          <Pressable
-            accessibilityLabel={translate("Добавить платёж", "Add payment")}
-            onPress={() => router.push("/add-payment")}
-            style={({ pressed }) => [styles.addIconButton, pressed && styles.buttonPressed]}
-          >
-            <Ionicons color={theme.colors.background} name="add" size={25} />
-          </Pressable>
+          <View style={styles.addButtons}>
+            <Pressable
+              accessibilityLabel={translate("Добавить расход", "Add expense")}
+              onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })}
+              style={({ pressed }) => [styles.addIconButton, pressed && styles.buttonPressed]}
+            >
+              <Ionicons color={theme.colors.background} name="remove" size={23} />
+            </Pressable>
+            {settings.includeIncome ? (
+              <Pressable
+                accessibilityLabel={translate("Добавить доход", "Add income")}
+                onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })}
+                style={({ pressed }) => [styles.addIconButton, styles.incomeIconButton, pressed && styles.buttonPressed]}
+              >
+                <Ionicons color={theme.colors.text} name="add" size={23} />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
         <EmptyStateText>
           {loading ? translate("Загружаю платежи...", "Loading payments...") : translate("Все платежи по порядку дат", "All payments ordered by date")}
@@ -477,6 +488,15 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: "center",
     width: 44
+  },
+  addButtons: {
+    flexDirection: "row",
+    gap: theme.spacing.sm
+  },
+  incomeIconButton: {
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: theme.colors.border,
+    borderWidth: 1
   },
   buttonPressed: {
     opacity: 0.78
