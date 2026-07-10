@@ -200,35 +200,14 @@ export default function HomeScreen() {
         )}
       </Card>
 
-      {visibleItems.length > 0 ? (
-        <Card style={styles.monthCard}>
-          <View style={styles.monthRow}>
-            <View style={styles.monthTextBlock}>
-              <Text style={styles.monthLabel}>{translate("В этом месяце платежей", "Payments this month")}</Text>
-              <Text style={styles.monthCount}>{currentMonthExpenses.length}</Text>
-            </View>
-            <Text style={styles.monthValue}>{formatCurrency(currentMonthExpenseTotal)}</Text>
-          </View>
-          <View style={styles.monthDivider} />
-          <View style={styles.monthRow}>
-            <View style={styles.monthTextBlock}>
-              <Text style={styles.monthLabel}>{translate("Оплачено в этом месяце", "Paid this month")}</Text>
-              <Text style={styles.monthCount}>{currentMonthPaidExpenses.length}</Text>
-            </View>
-            <Text style={styles.monthValue}>{formatCurrency(currentMonthPaidTotal)}</Text>
-          </View>
-          {settings.includeIncome ? <>
-            <View style={styles.monthDivider} />
-            <View style={styles.monthRow}>
-              <View style={styles.monthTextBlock}>
-                <Text style={styles.monthLabel}>{translate("Доходы в этом месяце", "Income this month")}</Text>
-                <Text style={styles.monthCount}>{currentMonthIncome.length}</Text>
-              </View>
-              <Text style={styles.incomeMonthValue}>{formatCurrency(currentMonthIncomeTotal)}</Text>
-            </View>
-          </> : null}
-        </Card>
-      ) : null}
+      <View style={styles.addActions}>
+        <View style={styles.addAction}>
+          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Добавить расход", "Add expense")} />
+        </View>
+        {settings.includeIncome ? <View style={styles.addAction}>
+          <AppButton icon="add" onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Добавить доход", "Add income")} variant="secondary" />
+        </View> : null}
+      </View>
 
       {settings.includeIncome ? (
         <Card style={styles.forecastCard}>
@@ -261,7 +240,7 @@ export default function HomeScreen() {
             <View style={styles.zeroLine} />
             <View style={styles.chartColumns}>
               {forecast.map((day) => {
-                const barHeight = Math.max(2, Math.round((Math.abs(day.balance) / maxForecastValue) * 48));
+                const barHeight = Math.max(2, Math.round((Math.abs(day.balance) / maxForecastValue) * 34));
 
                 return (
                   <View key={day.date} style={styles.chartColumn}>
@@ -285,22 +264,41 @@ export default function HomeScreen() {
         </Card>
       ) : null}
 
-      <View style={styles.addActions}>
-        <View style={styles.addAction}>
-          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Добавить расход", "Add expense")} />
+      <Card style={styles.monthCard}>
+        <View style={styles.monthRow}>
+          <View style={styles.monthTextBlock}>
+            <Text style={styles.monthLabel}>{translate("В этом месяце платежей", "Payments this month")}</Text>
+            <Text style={styles.monthCount}>{currentMonthExpenses.length}</Text>
+          </View>
+          <Text style={styles.monthValue}>{formatCurrency(currentMonthExpenseTotal)}</Text>
         </View>
-        {settings.includeIncome ? <View style={styles.addAction}>
-          <AppButton icon="add" onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Добавить доход", "Add income")} variant="secondary" />
-        </View> : null}
-      </View>
+        <View style={styles.monthDivider} />
+        <View style={styles.monthRow}>
+          <View style={styles.monthTextBlock}>
+            <Text style={styles.monthLabel}>{translate("Оплачено в этом месяце", "Paid this month")}</Text>
+            <Text style={styles.monthCount}>{currentMonthPaidExpenses.length}</Text>
+          </View>
+          <Text style={styles.monthValue}>{formatCurrency(currentMonthPaidTotal)}</Text>
+        </View>
+        {settings.includeIncome ? <>
+          <View style={styles.monthDivider} />
+          <View style={styles.monthRow}>
+            <View style={styles.monthTextBlock}>
+              <Text style={styles.monthLabel}>{translate("Доходы в этом месяце", "Income this month")}</Text>
+              <Text style={styles.monthCount}>{currentMonthIncome.length}</Text>
+            </View>
+            <Text style={styles.incomeMonthValue}>{formatCurrency(currentMonthIncomeTotal)}</Text>
+          </View>
+        </> : null}
+      </Card>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   screenContent: {
-    gap: 10,
-    paddingBottom: theme.spacing.md
+    gap: 8,
+    paddingBottom: theme.spacing.sm
   },
   header: {
     gap: theme.spacing.xs,
@@ -308,16 +306,17 @@ const styles = StyleSheet.create({
   },
   greeting: {
     color: theme.colors.text,
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "700"
   },
   subtitle: {
     color: theme.colors.textMuted,
-    fontSize: 15,
-    lineHeight: 22
+    fontSize: 14,
+    lineHeight: 19
   },
   nextPaymentCard: {
-    gap: theme.spacing.sm
+    gap: 6,
+    padding: 12
   },
   categoryBadge: {
     alignItems: "center",
@@ -343,9 +342,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: theme.colors.primarySoft,
     borderRadius: theme.radius.sm,
-    height: 36,
+    height: 32,
     justifyContent: "center",
-    width: 36
+    width: 32
   },
   cardTitle: {
     color: theme.colors.text,
@@ -358,7 +357,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     borderWidth: 1,
     gap: theme.spacing.xs,
-    padding: theme.spacing.sm
+    padding: 7
   },
   nextPaymentLabel: {
     color: theme.colors.textMuted,
@@ -367,7 +366,7 @@ const styles = StyleSheet.create({
   },
   nextPaymentValue: {
     color: theme.colors.primary,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700"
   },
   nextPaymentAmount: {
@@ -427,7 +426,8 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   monthCard: {
-    gap: theme.spacing.sm
+    gap: 7,
+    padding: 12
   },
   monthRow: {
     alignItems: "center",
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   },
   monthCount: {
     color: theme.colors.primary,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800"
   },
   monthDivider: {
@@ -470,7 +470,8 @@ const styles = StyleSheet.create({
     flex: 1
   },
   forecastCard: {
-    gap: theme.spacing.md
+    gap: 10,
+    padding: 12
   },
   forecastHeader: {
     alignItems: "center",
@@ -493,7 +494,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     gap: 3,
-    padding: theme.spacing.sm
+    padding: 7
   },
   forecastSummaryLabel: {
     color: theme.colors.textMuted,
@@ -519,7 +520,7 @@ const styles = StyleSheet.create({
     color: "#D98A8A"
   },
   chart: {
-    height: 112,
+    height: 82,
     justifyContent: "center",
     position: "relative"
   },
@@ -529,23 +530,23 @@ const styles = StyleSheet.create({
     left: 0,
     position: "absolute",
     right: 0,
-    top: 56
+    top: 41
   },
   chartColumns: {
     flexDirection: "row",
-    height: 112
+    height: 82
   },
   chartColumn: {
     flex: 1
   },
   chartHalfTop: {
     alignItems: "center",
-    height: 56,
+    height: 41,
     justifyContent: "flex-end"
   },
   chartHalfBottom: {
     alignItems: "center",
-    height: 56,
+    height: 41,
     justifyContent: "flex-start"
   },
   positiveBar: {
