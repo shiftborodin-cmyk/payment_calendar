@@ -26,6 +26,7 @@ export async function createPaymentItem(input: CreatePaymentInput) {
   await createLocalPayment(input.userId, {
     title: input.title,
     amount: input.amount,
+    categoryId: input.categoryId,
     date: input.date,
     comment: input.comment,
     repeatRule: input.repeatRule
@@ -36,6 +37,7 @@ export async function updatePaymentItem(id: string, input: UpdatePaymentInput) {
   await updateLocalPayment(input.userId, id, {
     title: input.title,
     amount: input.amount,
+    categoryId: input.categoryId,
     date: input.date,
     comment: input.comment,
     repeatRule: input.repeatRule

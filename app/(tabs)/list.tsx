@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
+import { getLocalCategories, type LocalCategory } from "@/features/categories/localCategoriesStorage";
 import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
 import {
   expandPaymentOccurrences,
@@ -34,6 +35,7 @@ export default function ListScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [items, setItems] = useState<PaymentItem[]>([]);
+  const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,10 @@ export default function ListScreen() {
     ],
     [visibleItems]
   );
+  const categoriesById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories]
+  );
 
   const loadItems = useCallback(async () => {
     if (!user) {
@@ -109,9 +115,13 @@ export default function ListScreen() {
 
     try {
       const nextItems = await fetchPaymentItems(user.id);
+      const nextCategories = await getLocalCategories(user.id).catch(() => null);
 
       if (focusedRef.current) {
         setItems(nextItems);
+        if (nextCategories) {
+          setCategories(nextCategories);
+        }
       }
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "Не удалось загрузить платежи.";
@@ -245,6 +255,7 @@ export default function ListScreen() {
                   const overdue = isPaymentOverdue(item);
                   const sourcePaymentId = item.originalPaymentId ?? item.id;
                   const isRepeating = item.repeatRule !== "none" || Boolean(item.isGeneratedOccurrence);
+                  const category = item.categoryId ? categoriesById.get(item.categoryId) : null;
 
                   return (
                     <Card key={item.id} style={[styles.paymentCard, overdue && styles.overdueCard]}>
@@ -267,6 +278,12 @@ export default function ListScreen() {
                             {item.title}
                           </Text>
                           <Text style={styles.paymentMeta}>{formatPaymentDate(item.date)}</Text>
+                          {category ? (
+                            <View style={styles.categoryBadge}>
+                              <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+                              <Text style={styles.categoryText}>{category.name}</Text>
+                            </View>
+                          ) : null}
                           {overdue ? <Text style={styles.overdueText}>Просрочен</Text> : null}
                           {isRepeating ? <Text style={styles.repeatText}>Повторяется</Text> : null}
                         </View>
@@ -470,6 +487,21 @@ const styles = StyleSheet.create({
   },
   repeatText: {
     color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  categoryBadge: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.xs
+  },
+  categoryDot: {
+    borderRadius: 5,
+    height: 10,
+    width: 10
+  },
+  categoryText: {
+    color: theme.colors.textMuted,
     fontSize: 12,
     fontWeight: "700"
   },

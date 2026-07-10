@@ -1,9 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent
+} from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
+import { getLocalCategories, type LocalCategory } from "@/features/categories/localCategoriesStorage";
 import {
   addDaysToDateString,
   formatPaymentDate,
@@ -31,11 +40,6 @@ import type { PaymentItem } from "@/types/payment";
 type CalendarView = "month" | "week";
 
 const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-const swipeDistanceThreshold = 42;
-const swipeVelocityThreshold = 0.45;
-const swipeStartThreshold = 8;
-const swipeDragResistance = 0.65;
-const swipeExitDistance = 260;
 
 function getMonthLabel(dateString: string) {
   return new Intl.DateTimeFormat("ru-RU", {
@@ -83,45 +87,43 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [desiredDayOfMonth, setDesiredDayOfMonth] = useState(getDayOfMonth(getTodayDateString()));
   const [items, setItems] = useState<PaymentItem[]>([]);
+  const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [carouselWidth, setCarouselWidth] = useState(0);
   const viewRef = useRef(view);
   const desiredDayRef = useRef(desiredDayOfMonth);
-  const swipeTranslateX = useRef(new Animated.Value(0)).current;
-  const isSwipeAnimatingRef = useRef(false);
+  const carouselScrollRef = useRef<ScrollView>(null);
+  const carouselWidthRef = useRef(0);
+  const handlingScrollEndRef = useRef(false);
 
   viewRef.current = view;
   desiredDayRef.current = desiredDayOfMonth;
 
-  const visibleRange = useMemo(() => {
-    if (view === "week") {
-      const weekStart = getWeekStartDateString(selectedDate);
-      return {
-        end: addDaysToDateString(weekStart, 6),
-        start: weekStart
-      };
-    }
-
-    return {
-      end: getMonthEndDateString(selectedDate),
-      start: getMonthStartDateString(selectedDate)
-    };
-  }, [selectedDate, view]);
-  const visiblePayments = useMemo(
-    () => getPaymentsForRange(items, visibleRange.start, visibleRange.end),
-    [items, visibleRange.end, visibleRange.start]
-  );
-  const paymentDates = useMemo(
-    () => new Set(visiblePayments.map((payment) => payment.date)),
-    [visiblePayments]
-  );
   const selectedPayments = useMemo(
     () => getPaymentsForDate(items, selectedDate),
     [items, selectedDate]
   );
   const selectedTotal = sumPayments(selectedPayments);
-  const monthDays = useMemo(() => getMonthDays(selectedDate), [selectedDate]);
-  const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
+  const categoriesById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories]
+  );
+  const carouselDates = useMemo(() => {
+    if (view === "week") {
+      return [
+        addDaysToDateString(selectedDate, -7),
+        selectedDate,
+        addDaysToDateString(selectedDate, 7)
+      ];
+    }
+
+    return [
+      moveDateByMonthsKeepingDesiredDay(selectedDate, -1, desiredDayOfMonth),
+      selectedDate,
+      moveDateByMonthsKeepingDesiredDay(selectedDate, 1, desiredDayOfMonth)
+    ];
+  }, [desiredDayOfMonth, selectedDate, view]);
 
   const navigate = useCallback((direction: -1 | 0 | 1) => {
     if (direction === 0) {
@@ -143,69 +145,17 @@ export default function CalendarScreen() {
     }
   }, []);
 
-  const resetSwipePosition = useCallback(() => {
-    Animated.spring(swipeTranslateX, {
-      damping: 18,
-      stiffness: 180,
-      toValue: 0,
-      useNativeDriver: true
-    }).start(() => {
-      isSwipeAnimatingRef.current = false;
-    });
-  }, [swipeTranslateX]);
+  const scrollCarouselToCenter = useCallback((animated = false) => {
+    const width = carouselWidthRef.current;
 
-  const finishSwipe = useCallback(
-    (direction: -1 | 1) => {
-      if (isSwipeAnimatingRef.current) {
-        return;
-      }
+    if (width > 0) {
+      carouselScrollRef.current?.scrollTo({ animated, x: width, y: 0 });
+    }
+  }, []);
 
-      isSwipeAnimatingRef.current = true;
-      Animated.timing(swipeTranslateX, {
-        duration: 140,
-        toValue: direction === 1 ? -swipeExitDistance : swipeExitDistance,
-        useNativeDriver: true
-      }).start(() => {
-        navigate(direction);
-        swipeTranslateX.setValue(direction === 1 ? 72 : -72);
-        resetSwipePosition();
-      });
-    },
-    [navigate, resetSwipePosition, swipeTranslateX]
-  );
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gestureState) => {
-          const horizontalMove = Math.abs(gestureState.dx);
-          const verticalMove = Math.abs(gestureState.dy);
-
-          return horizontalMove > swipeStartThreshold && horizontalMove > verticalMove * 1.2;
-        },
-        onPanResponderMove: (_event, gestureState) => {
-          if (!isSwipeAnimatingRef.current) {
-            swipeTranslateX.setValue(gestureState.dx * swipeDragResistance);
-          }
-        },
-        onPanResponderRelease: (_event, gestureState) => {
-          const horizontalMove = Math.abs(gestureState.dx);
-          const verticalMove = Math.abs(gestureState.dy);
-          const hasSwipeDistance = horizontalMove >= swipeDistanceThreshold;
-          const hasSwipeVelocity = Math.abs(gestureState.vx) >= swipeVelocityThreshold && horizontalMove >= 12;
-          const isHorizontalSwipe = horizontalMove > verticalMove * 1.15;
-
-          if (isHorizontalSwipe && (hasSwipeDistance || hasSwipeVelocity)) {
-            finishSwipe(gestureState.dx < 0 ? 1 : -1);
-            return;
-          }
-
-          resetSwipePosition();
-        },
-        onPanResponderTerminate: resetSwipePosition
-      }),
-    [finishSwipe, resetSwipePosition, swipeTranslateX]
-  );
+  useEffect(() => {
+    requestAnimationFrame(() => scrollCarouselToCenter(false));
+  }, [carouselWidth, scrollCarouselToCenter, selectedDate, view]);
 
   useFocusEffect(
     useCallback(() => {
@@ -222,9 +172,13 @@ export default function CalendarScreen() {
 
         try {
           const nextItems = await fetchPaymentItems(user.id);
+          const nextCategories = await getLocalCategories(user.id).catch(() => null);
 
           if (isActive) {
             setItems(nextItems);
+            if (nextCategories) {
+              setCategories(nextCategories);
+            }
           }
         } catch (loadError) {
           const message = loadError instanceof Error ? loadError.message : "Не удалось загрузить платежи.";
@@ -260,7 +214,56 @@ export default function CalendarScreen() {
     return view === "month" ? "Обзор месяца" : "Неделя с понедельника";
   }
 
-  function renderMonthView() {
+  function getPeriodPaymentDates(periodDate: string) {
+    const periodRange =
+      view === "week"
+        ? {
+            end: addDaysToDateString(getWeekStartDateString(periodDate), 6),
+            start: getWeekStartDateString(periodDate)
+          }
+        : {
+            end: getMonthEndDateString(periodDate),
+            start: getMonthStartDateString(periodDate)
+          };
+    const periodPayments = getPaymentsForRange(items, periodRange.start, periodRange.end);
+
+    return new Set(periodPayments.map((payment) => payment.date));
+  }
+
+  function handleCarouselLayout(width: number) {
+    if (width <= 0 || width === carouselWidthRef.current) {
+      return;
+    }
+
+    carouselWidthRef.current = width;
+    setCarouselWidth(width);
+    requestAnimationFrame(() => scrollCarouselToCenter(false));
+  }
+
+  function handleCarouselScrollEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const width = carouselWidthRef.current;
+
+    if (width <= 0 || handlingScrollEndRef.current) {
+      return;
+    }
+
+    const page = Math.round(event.nativeEvent.contentOffset.x / width);
+    const direction = page <= 0 ? -1 : page >= 2 ? 1 : 0;
+
+    if (direction === 0) {
+      scrollCarouselToCenter(false);
+      return;
+    }
+
+    handlingScrollEndRef.current = true;
+    navigate(direction);
+    requestAnimationFrame(() => {
+      scrollCarouselToCenter(false);
+      handlingScrollEndRef.current = false;
+    });
+  }
+
+  function renderMonthView(periodDate: string, markedDates: Set<string>) {
     return (
       <>
         <View style={styles.weekRow}>
@@ -271,7 +274,7 @@ export default function CalendarScreen() {
           ))}
         </View>
         <View style={styles.grid}>
-          {monthDays.map((dateString) => {
+          {getMonthDays(periodDate).map((dateString) => {
             const day = getDayOfMonth(dateString);
             const isSelected = dateString === selectedDate;
 
@@ -282,7 +285,7 @@ export default function CalendarScreen() {
                 style={[styles.dayCell, isSelected && styles.dayCellActive]}
               >
                 <Text style={[styles.dayText, isSelected && styles.dayTextActive]}>{day}</Text>
-                {paymentDates.has(dateString) ? <View style={styles.dayDot} /> : null}
+                {markedDates.has(dateString) ? <View style={styles.dayDot} /> : null}
               </Pressable>
             );
           })}
@@ -291,10 +294,10 @@ export default function CalendarScreen() {
     );
   }
 
-  function renderWeekView() {
+  function renderWeekView(periodDate: string, markedDates: Set<string>) {
     return (
       <View style={styles.weekCards}>
-        {weekDates.map((dateString, index) => {
+        {getWeekDates(periodDate).map((dateString, index) => {
           const isSelected = dateString === selectedDate;
 
           return (
@@ -307,7 +310,7 @@ export default function CalendarScreen() {
               <Text style={[styles.weekCardDate, isSelected && styles.weekCardTextActive]}>
                 {getShortDateLabel(dateString)}
               </Text>
-              {paymentDates.has(dateString) ? <View style={styles.dayDot} /> : null}
+              {markedDates.has(dateString) ? <View style={styles.dayDot} /> : null}
             </Pressable>
           );
         })}
@@ -315,8 +318,31 @@ export default function CalendarScreen() {
     );
   }
 
+  function renderPeriod(periodDate: string) {
+    const markedDates = getPeriodPaymentDates(periodDate);
+
+    return (
+      <View key={periodDate} style={[styles.carouselPage, carouselWidth > 0 && { width: carouselWidth }]}>
+        <View style={styles.calendarTopRow}>
+          <View>
+            <Text style={styles.monthLabel}>{getMonthLabel(periodDate)}</Text>
+            <Text style={styles.calendarModeLabel}>{getModeLabel()}</Text>
+          </View>
+          <View style={styles.calendarIconWrap}>
+            <Ionicons color={theme.colors.primary} name="calendar-clear-outline" size={22} />
+          </View>
+        </View>
+
+        {view === "month" ? renderMonthView(periodDate, markedDates) : null}
+        {view === "week" ? renderWeekView(periodDate, markedDates) : null}
+
+        {error ? <Text style={styles.calendarErrorText}>Не удалось загрузить платежи</Text> : null}
+      </View>
+    );
+  }
+
   return (
-    <ScreenContainer>
+    <ScreenContainer contentStyle={styles.screenContent}>
       <View style={styles.header}>
         <Text style={styles.title}>Календарь</Text>
         <Text style={styles.subtitle}>Платежи по датам</Text>
@@ -343,28 +369,25 @@ export default function CalendarScreen() {
         </Pressable>
       </View>
 
-      <Card style={styles.calendarCard} {...panResponder.panHandlers}>
-        <Animated.View style={[styles.calendarContent, { transform: [{ translateX: swipeTranslateX }] }]}>
-          <View style={styles.calendarTopRow}>
-            <View>
-              <Text style={styles.monthLabel}>{getMonthLabel(selectedDate)}</Text>
-              <Text style={styles.calendarModeLabel}>{getModeLabel()}</Text>
-            </View>
-            <View style={styles.calendarIconWrap}>
-              <Ionicons color={theme.colors.primary} name="calendar-clear-outline" size={22} />
-            </View>
-          </View>
-
-          {view === "month" ? renderMonthView() : null}
-          {view === "week" ? renderWeekView() : null}
-
-          <View style={styles.legend}>
-            <View style={styles.legendDot} />
-            <Text style={styles.legendText}>
-              {error ? "Не удалось загрузить платежи" : "Свайп влево или вправо переключает период"}
-            </Text>
-          </View>
-        </Animated.View>
+      <Card style={styles.calendarCard}>
+        <View
+          style={styles.carouselViewport}
+          onLayout={(event) => handleCarouselLayout(event.nativeEvent.layout.width)}
+        >
+          <ScrollView
+            directionalLockEnabled={false}
+            disableIntervalMomentum
+            horizontal
+            nestedScrollEnabled
+            onMomentumScrollEnd={handleCarouselScrollEnd}
+            pagingEnabled
+            ref={carouselScrollRef}
+            scrollEventThrottle={16}
+            showsHorizontalScrollIndicator={false}
+          >
+            {carouselDates.map((periodDate) => renderPeriod(periodDate))}
+          </ScrollView>
+        </View>
       </Card>
 
       <View style={styles.selectedDayBlock}>
@@ -381,12 +404,19 @@ export default function CalendarScreen() {
         ) : (
           selectedPayments.map((payment) => {
             const overdue = isPaymentOverdue(payment);
+            const category = payment.categoryId ? categoriesById.get(payment.categoryId) : null;
 
             return (
               <Card key={payment.id} style={[styles.paymentCard, overdue && styles.paymentCardOverdue]}>
                 <View style={styles.paymentRow}>
                   <View style={styles.paymentText}>
                     <Text style={styles.paymentTitle}>{payment.title}</Text>
+                    {category ? (
+                      <View style={styles.categoryBadge}>
+                        <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+                        <Text style={styles.categoryText}>{category.name}</Text>
+                      </View>
+                    ) : null}
                     {overdue ? <Text style={styles.overdueText}>Просрочен</Text> : null}
                     {payment.isGeneratedOccurrence ? <Text style={styles.repeatText}>Повторяется</Text> : null}
                   </View>
@@ -402,6 +432,9 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
+  screenContent: {
+    paddingBottom: 132
+  },
   header: {
     gap: theme.spacing.xs,
     marginBottom: theme.spacing.sm
@@ -434,10 +467,14 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   calendarCard: {
+    overflow: "hidden",
+    padding: theme.spacing.sm
+  },
+  carouselViewport: {
     overflow: "hidden"
   },
-  calendarContent: {
-    gap: theme.spacing.md
+  carouselPage: {
+    gap: theme.spacing.sm
   },
   calendarTopRow: {
     alignItems: "center",
@@ -449,9 +486,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: theme.colors.primarySoft,
     borderRadius: theme.radius.md,
-    height: 44,
+    height: 40,
     justifyContent: "center",
-    width: 44
+    width: 40
   },
   monthLabel: {
     color: theme.colors.text,
@@ -462,7 +499,7 @@ const styles = StyleSheet.create({
   calendarModeLabel: {
     color: theme.colors.textMuted,
     fontSize: 13,
-    marginTop: 3
+    marginTop: 2
   },
   weekRow: {
     flexDirection: "row"
@@ -483,7 +520,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: theme.radius.sm,
     justifyContent: "center",
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
     width: `${100 / 7}%`
   },
   dayCellActive: {
@@ -509,7 +546,7 @@ const styles = StyleSheet.create({
   },
   weekCards: {
     flexDirection: "row",
-    gap: theme.spacing.xs
+    gap: 4
   },
   weekCard: {
     alignItems: "center",
@@ -518,9 +555,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.sm,
     borderWidth: 1,
     flex: 1,
-    minHeight: 76,
+    minHeight: 64,
     justifyContent: "center",
-    padding: theme.spacing.xs
+    paddingHorizontal: 2,
+    paddingVertical: theme.spacing.xs
   },
   weekCardActive: {
     backgroundColor: theme.colors.primarySoft,
@@ -533,30 +571,15 @@ const styles = StyleSheet.create({
   },
   weekCardDate: {
     color: theme.colors.text,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     textAlign: "center"
   },
   weekCardTextActive: {
     color: theme.colors.primary
   },
-  legend: {
-    alignItems: "center",
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.md,
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-    padding: theme.spacing.sm
-  },
-  legendDot: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 4,
-    height: 8,
-    width: 8
-  },
-  legendText: {
+  calendarErrorText: {
     color: theme.colors.textMuted,
-    flex: 1,
     fontSize: 13
   },
   selectedDayBlock: {
@@ -623,6 +646,21 @@ const styles = StyleSheet.create({
   },
   repeatText: {
     color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  categoryBadge: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.xs
+  },
+  categoryDot: {
+    borderRadius: 5,
+    height: 10,
+    width: 10
+  },
+  categoryText: {
+    color: theme.colors.textMuted,
     fontSize: 12,
     fontWeight: "700"
   }

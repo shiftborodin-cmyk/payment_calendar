@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useAuth } from "@/features/auth/AuthContext";
+import { getLocalCategories, type LocalCategory } from "@/features/categories/localCategoriesStorage";
 import { isValidPaymentDate } from "@/features/payments/paymentDates";
 import { getTodayDateInputValue } from "@/features/payments/paymentFormatters";
 import { getDateAfterDays, getDateAfterMonths } from "@/features/payments/paymentOccurrences";
@@ -15,6 +17,7 @@ export type PaymentFormValues = {
   date: string;
   comment: string | null;
   repeatRule: RepeatRule;
+  categoryId?: string | null;
 };
 
 type PaymentFormProps = {
@@ -48,12 +51,45 @@ export function PaymentForm({
   onSubmit,
   onCancel
 }: PaymentFormProps) {
+  const { user } = useAuth();
   const [title, setTitle] = useState(initialPayment?.title ?? "");
   const [amount, setAmount] = useState(initialPayment?.amount?.toString() ?? "");
   const [date, setDate] = useState(initialPayment?.date ?? getTodayDateInputValue());
   const [comment, setComment] = useState(initialPayment?.comment ?? "");
   const [repeatRule, setRepeatRule] = useState<RepeatRule>(initialPayment?.repeatRule ?? "none");
+  const [categoryId, setCategoryId] = useState<string | null>(initialPayment?.categoryId ?? null);
+  const [categories, setCategories] = useState<LocalCategory[]>([]);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadCategories() {
+      if (!user) {
+        return;
+      }
+
+      try {
+        const nextCategories = await getLocalCategories(user.id);
+
+        if (isActive) {
+          setCategories(nextCategories);
+          setCategoryError(null);
+        }
+      } catch {
+        if (isActive) {
+          setCategoryError("Категории временно недоступны. Платёж можно сохранить без категории.");
+        }
+      }
+    }
+
+    loadCategories();
+
+    return () => {
+      isActive = false;
+    };
+  }, [user]);
 
   async function handleSubmit() {
     if (loading) {
@@ -87,7 +123,8 @@ export function PaymentForm({
       amount: parsedAmount,
       date: trimmedDate,
       comment: comment.trim() || null,
-      repeatRule
+      repeatRule,
+      categoryId
     });
   }
 
@@ -132,6 +169,33 @@ export function PaymentForm({
           style={styles.commentInput}
           value={comment}
         />
+
+        <View style={styles.group}>
+          <Text style={styles.groupLabel}>Категория</Text>
+          <View style={styles.chipGroup}>
+            <Pressable
+              onPress={() => setCategoryId(null)}
+              style={[styles.chip, categoryId === null && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, categoryId === null && styles.chipTextActive]}>
+                Без категории
+              </Text>
+            </Pressable>
+            {categories.map((category) => (
+              <Pressable
+                key={category.id}
+                onPress={() => setCategoryId(category.id)}
+                style={[styles.chip, categoryId === category.id && styles.chipActive]}
+              >
+                <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+                <Text style={[styles.chipText, categoryId === category.id && styles.chipTextActive]}>
+                  {category.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {categoryError ? <Text style={styles.hintText}>{categoryError}</Text> : null}
+        </View>
 
         <View style={styles.group}>
           <Text style={styles.groupLabel}>Повторяемость</Text>
@@ -188,10 +252,13 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm
   },
   chip: {
+    alignItems: "center",
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
     borderWidth: 1,
+    flexDirection: "row",
+    gap: theme.spacing.xs,
     minHeight: 36,
     justifyContent: "center",
     paddingHorizontal: theme.spacing.md
@@ -207,6 +274,16 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: theme.colors.primary
+  },
+  categoryDot: {
+    borderRadius: 5,
+    height: 10,
+    width: 10
+  },
+  hintText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18
   },
   error: {
     color: theme.colors.danger,

@@ -8,6 +8,7 @@ export type LocalPaymentInput = {
   date: string;
   comment: string | null;
   repeatRule: RepeatRule;
+  categoryId?: string | null;
 };
 
 type LocalPaymentRow = {
@@ -15,6 +16,7 @@ type LocalPaymentRow = {
   user_id: string;
   title: string;
   amount: number | null;
+  category_id?: string | null;
   currency: string;
   date: string;
   comment: string | null;
@@ -105,7 +107,7 @@ function mapLocalPayment(row: LocalPaymentRow): PaymentItem {
   return {
     id: row.id,
     userId: row.user_id,
-    categoryId: null,
+    categoryId: row.category_id ?? null,
     title: row.title,
     amount: row.amount,
     currency: row.currency,
@@ -161,6 +163,7 @@ export async function createLocalPayment(userId: string, input: LocalPaymentInpu
       user_id: userId,
       title: input.title,
       amount: input.amount,
+      category_id: input.categoryId ?? null,
       currency: "RUB",
       date: input.date,
       comment: input.comment,
@@ -186,6 +189,7 @@ export async function updateLocalPayment(userId: string, paymentId: string, inpu
             ...payment,
             title: input.title,
             amount: input.amount,
+            category_id: input.categoryId ?? null,
             date: input.date,
             comment: input.comment,
             repeat_rule: input.repeatRule,
@@ -214,6 +218,24 @@ export async function markLocalPaymentPaid(userId: string, paymentId: string) {
         ? {
             ...payment,
             status: "paid" as PaymentStatus,
+            updated_at: now
+          }
+        : payment
+    );
+
+    await writeRows(userId, nextRows);
+  });
+}
+
+export async function clearLocalPaymentCategory(userId: string, categoryId: string) {
+  return withLocalDiagnostics("Обновление локального платежа", async () => {
+    const rows = await readRows(userId);
+    const now = new Date().toISOString();
+    const nextRows = rows.map((payment) =>
+      payment.category_id === categoryId
+        ? {
+            ...payment,
+            category_id: null,
             updated_at: now
           }
         : payment

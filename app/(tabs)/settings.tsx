@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -9,6 +10,7 @@ import { SettingsMenuItem } from "@/shared/ui/SettingsMenuItem";
 import { theme } from "@/shared/theme/theme";
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +34,12 @@ export default function SettingsScreen() {
       </Card>
 
       <View style={styles.menu}>
-        <SettingsMenuItem icon="grid-outline" subtitle="Управление категориями появится позже" title="Категории" />
+        <SettingsMenuItem
+          icon="grid-outline"
+          onPress={() => router.push("/categories")}
+          subtitle="Локальные категории платежей"
+          title="Категории"
+        />
         <SettingsMenuItem
           icon="notifications-outline"
           subtitle="Напоминания о платежах"
