@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
@@ -26,10 +26,24 @@ function getGreeting() {
   return "Добрый вечер";
 }
 
+function getDateValue(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getDateAfterDays(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return getDateValue(date);
+}
+
+function sortByDate(items: PaymentItem[]) {
+  return [...items].sort((left, right) => left.date.localeCompare(right.date) || left.createdAt.localeCompare(right.createdAt));
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [nextPayment, setNextPayment] = useState<PaymentItem | null>(null);
+  const [items, setItems] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const focusedRef = useRef(false);
@@ -38,7 +52,7 @@ export default function HomeScreen() {
 
   const loadNextPayment = useCallback(async () => {
     if (!user) {
-      setNextPayment(null);
+      setItems([]);
       return;
     }
 
@@ -51,11 +65,10 @@ export default function HomeScreen() {
     setError(null);
 
     try {
-      const items = await fetchPaymentItems(user.id);
-      const unpaidItems = items.filter((item) => item.status !== "paid");
+      const nextItems = await fetchPaymentItems(user.id);
 
       if (focusedRef.current) {
-        setNextPayment(unpaidItems[0] ?? null);
+        setItems(nextItems);
       }
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "Не удалось загрузить платежи.";
@@ -71,6 +84,13 @@ export default function HomeScreen() {
       }
     }
   }, [user]);
+
+  const today = getDateValue(new Date());
+  const weekEnd = getDateAfterDays(7);
+  const unpaidItems = useMemo(() => sortByDate(items.filter((item) => item.status !== "paid")), [items]);
+  const nextPayment = unpaidItems.find((item) => item.date >= today) ?? unpaidItems[0] ?? null;
+  const overdueCount = unpaidItems.filter((item) => item.date < today).length;
+  const upcomingWeekItems = unpaidItems.filter((item) => item.date >= today && item.date <= weekEnd).slice(0, 4);
 
   useFocusEffect(
     useCallback(() => {
@@ -114,13 +134,46 @@ export default function HomeScreen() {
         ) : (
           <View style={styles.emptyBlock}>
             <Ionicons color={theme.colors.textMuted} name="calendar-outline" size={32} />
-            <Text style={styles.emptyTitle}>{loading ? "Загружаю платежи..." : "Платежей пока нет"}</Text>
+            <Text style={styles.emptyTitle}>
+              {loading ? "Загружаю платежи..." : items.length > 0 ? "Все платежи оплачены" : "Платежей пока нет"}
+            </Text>
             <Text style={styles.emptyDescription}>
-              Добавьте первый платёж, чтобы видеть его здесь и в календаре.
+              {items.length > 0
+                ? "На ближайшее время активных платежей нет."
+                : "Добавьте первый платёж, чтобы видеть его здесь и в календаре."}
             </Text>
           </View>
         )}
       </Card>
+
+      {items.length > 0 ? (
+        <Card style={styles.statsCard}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{overdueCount}</Text>
+            <Text style={styles.statLabel}>Просрочено</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{upcomingWeekItems.length}</Text>
+            <Text style={styles.statLabel}>На 7 дней</Text>
+          </View>
+        </Card>
+      ) : null}
+
+      {upcomingWeekItems.length > 0 ? (
+        <View style={styles.upcomingBlock}>
+          <Text style={styles.sectionTitle}>Ближайшие на 7 дней</Text>
+          {upcomingWeekItems.map((payment) => (
+            <Card key={payment.id} style={styles.miniCard}>
+              <View style={styles.miniText}>
+                <Text style={styles.miniTitle}>{payment.title}</Text>
+                <Text style={styles.miniDate}>{formatPaymentDate(payment.date)}</Text>
+              </View>
+              <Text style={styles.miniAmount}>{formatPaymentAmount(payment)}</Text>
+            </Card>
+          ))}
+        </View>
+      ) : null}
 
       <AppButton onPress={() => router.push("/add-payment")} title="Добавить платёж" />
     </ScreenContainer>
@@ -206,5 +259,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center"
+  },
+  statsCard: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.md,
+    justifyContent: "space-around"
+  },
+  statItem: {
+    alignItems: "center",
+    flex: 1,
+    gap: 4
+  },
+  statDivider: {
+    backgroundColor: theme.colors.border,
+    height: 42,
+    width: 1
+  },
+  statValue: {
+    color: theme.colors.primary,
+    fontSize: 24,
+    fontWeight: "800"
+  },
+  statLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 13
+  },
+  upcomingBlock: {
+    gap: theme.spacing.sm
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: "700"
+  },
+  miniCard: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  miniText: {
+    flex: 1,
+    gap: 3
+  },
+  miniTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  miniDate: {
+    color: theme.colors.textMuted,
+    fontSize: 13
+  },
+  miniAmount: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: "700"
   }
 });

@@ -17,6 +17,11 @@ export async function fetchPaymentItems(userId: string) {
   return getLocalPayments(userId);
 }
 
+export async function fetchPaymentItemById(userId: string, id: string) {
+  const payments = await getLocalPayments(userId);
+  return payments.find((payment) => payment.id === id) ?? null;
+}
+
 export async function createPaymentItem(input: CreatePaymentInput) {
   await createLocalPayment(input.userId, {
     title: input.title,

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
@@ -13,6 +13,18 @@ import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { theme } from "@/shared/theme/theme";
 import type { PaymentItem } from "@/types/payment";
 
+function getTodayDateValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isPaymentOverdue(item: PaymentItem) {
+  return item.status !== "paid" && item.date < getTodayDateValue();
+}
+
+function sortByDate(items: PaymentItem[]) {
+  return [...items].sort((left, right) => left.date.localeCompare(right.date) || left.createdAt.localeCompare(right.createdAt));
+}
+
 export default function ListScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -22,6 +34,23 @@ export default function ListScreen() {
   const [error, setError] = useState<string | null>(null);
   const focusedRef = useRef(false);
   const loadingRef = useRef(false);
+  const groupedItems = useMemo(
+    () => [
+      {
+        title: "Просроченные",
+        data: sortByDate(items.filter((item) => isPaymentOverdue(item)))
+      },
+      {
+        title: "Ближайшие",
+        data: sortByDate(items.filter((item) => item.status !== "paid" && !isPaymentOverdue(item)))
+      },
+      {
+        title: "Оплаченные",
+        data: sortByDate(items.filter((item) => item.status === "paid"))
+      }
+    ],
+    [items]
+  );
 
   const loadItems = useCallback(async () => {
     if (!user) {
@@ -143,52 +172,76 @@ export default function ListScreen() {
         </Card>
       ) : items.length > 0 ? (
         <View style={styles.list}>
-          {items.map((item) => (
-            <Card key={item.id} style={styles.paymentCard}>
-              <View style={styles.paymentTopRow}>
-                <View style={styles.paymentIconWrap}>
-                  <Ionicons
-                    color={item.status === "paid" ? theme.colors.textMuted : theme.colors.primary}
-                    name={item.status === "paid" ? "checkmark-circle-outline" : "wallet-outline"}
-                    size={22}
-                  />
-                </View>
-                <View style={styles.paymentMain}>
-                  <Text style={[styles.paymentTitle, item.status === "paid" && styles.paidText]}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.paymentMeta}>{formatPaymentDate(item.date)}</Text>
-                </View>
-                <Text style={[styles.paymentAmount, item.status === "paid" && styles.paidText]}>
-                  {formatPaymentAmount(item)}
-                </Text>
-              </View>
+          {groupedItems.map((group) =>
+            group.data.length > 0 ? (
+              <View key={group.title} style={styles.group}>
+                <Text style={styles.sectionTitle}>{group.title}</Text>
+                {group.data.map((item) => {
+                  const overdue = isPaymentOverdue(item);
 
-              {item.comment ? <Text style={styles.comment}>{item.comment}</Text> : null}
+                  return (
+                    <Card key={item.id} style={[styles.paymentCard, overdue && styles.overdueCard]}>
+                      <View style={styles.paymentTopRow}>
+                        <View style={styles.paymentIconWrap}>
+                          <Ionicons
+                            color={
+                              item.status === "paid"
+                                ? theme.colors.textMuted
+                                : overdue
+                                  ? theme.colors.danger
+                                  : theme.colors.primary
+                            }
+                            name={item.status === "paid" ? "checkmark-circle-outline" : "wallet-outline"}
+                            size={22}
+                          />
+                        </View>
+                        <View style={styles.paymentMain}>
+                          <Text style={[styles.paymentTitle, item.status === "paid" && styles.paidText]}>
+                            {item.title}
+                          </Text>
+                          <Text style={styles.paymentMeta}>{formatPaymentDate(item.date)}</Text>
+                          {overdue ? <Text style={styles.overdueText}>Просрочен</Text> : null}
+                        </View>
+                        <Text style={[styles.paymentAmount, item.status === "paid" && styles.paidText]}>
+                          {formatPaymentAmount(item)}
+                        </Text>
+                      </View>
 
-              <View style={styles.actions}>
-                <Pressable
-                  disabled={item.status === "paid" || actionId === item.id}
-                  onPress={() => handleMarkPaid(item)}
-                  style={[
-                    styles.smallButton,
-                    item.status === "paid" && styles.smallButtonDisabled
-                  ]}
-                >
-                  <Text style={styles.smallButtonText}>
-                    {item.status === "paid" ? "Оплачено" : "Отметить оплачено"}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  disabled={actionId === item.id}
-                  onPress={() => handleDelete(item)}
-                  style={[styles.smallButton, styles.deleteButton]}
-                >
-                  <Text style={[styles.smallButtonText, styles.deleteButtonText]}>Удалить</Text>
-                </Pressable>
+                      {item.comment ? <Text style={styles.comment}>{item.comment}</Text> : null}
+
+                      <View style={styles.actions}>
+                        <Pressable
+                          onPress={() => router.push({ pathname: "/edit-payment/[id]", params: { id: item.id } })}
+                          style={styles.smallButton}
+                        >
+                          <Text style={styles.smallButtonText}>Редактировать</Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={item.status === "paid" || actionId === item.id}
+                          onPress={() => handleMarkPaid(item)}
+                          style={[
+                            styles.smallButton,
+                            item.status === "paid" && styles.smallButtonDisabled
+                          ]}
+                        >
+                          <Text style={styles.smallButtonText}>
+                            {item.status === "paid" ? "Оплачено" : "Оплатить"}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={actionId === item.id}
+                          onPress={() => handleDelete(item)}
+                          style={[styles.smallButton, styles.deleteButton]}
+                        >
+                          <Text style={[styles.smallButtonText, styles.deleteButtonText]}>Удалить</Text>
+                        </Pressable>
+                      </View>
+                    </Card>
+                  );
+                })}
               </View>
-            </Card>
-          ))}
+            ) : null
+          )}
         </View>
       ) : null}
     </ScreenContainer>
@@ -263,8 +316,20 @@ const styles = StyleSheet.create({
   list: {
     gap: theme.spacing.sm
   },
+  group: {
+    gap: theme.spacing.sm
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: theme.spacing.xs
+  },
   paymentCard: {
     gap: theme.spacing.md
+  },
+  overdueCard: {
+    borderColor: theme.colors.danger
   },
   paymentTopRow: {
     alignItems: "center",
@@ -291,6 +356,11 @@ const styles = StyleSheet.create({
   paymentMeta: {
     color: theme.colors.textMuted,
     fontSize: 13
+  },
+  overdueText: {
+    color: theme.colors.danger,
+    fontSize: 12,
+    fontWeight: "700"
   },
   paymentAmount: {
     color: theme.colors.text,

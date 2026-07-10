@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
+import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
 import { fetchPaymentItems } from "@/features/payments/paymentsApi";
 import { Card } from "@/shared/ui/Card";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
@@ -15,9 +16,18 @@ type CalendarView = "month" | "week" | "day";
 
 const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
+function getDateValue(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function isPaymentOverdue(item: PaymentItem) {
+  return item.status !== "paid" && item.date < getDateValue(new Date());
+}
+
 export default function CalendarScreen() {
   const { user } = useAuth();
   const [view, setView] = useState<CalendarView>("month");
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [items, setItems] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +42,7 @@ export default function CalendarScreen() {
   }, []);
 
   const calendarCells = useMemo(() => Array.from({ length: 35 }, (_, index) => index + 1), []);
-  const currentDate = new Date();
+  const currentDate = useMemo(() => new Date(), []);
   const paymentDays = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -44,6 +54,17 @@ export default function CalendarScreen() {
         .map((date) => date.getDate())
     );
   }, [items, currentDate]);
+  const selectedDateValue = useMemo(
+    () => getDateValue(new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay)),
+    [currentDate, selectedDay]
+  );
+  const selectedPayments = useMemo(
+    () =>
+      items
+        .filter((item) => item.date === selectedDateValue)
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt)),
+    [items, selectedDateValue]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -131,21 +152,26 @@ export default function CalendarScreen() {
 
         <View style={styles.grid}>
           {calendarCells.map((day) => (
-            <View
+            <Pressable
               key={day}
-              style={[styles.dayCell, day <= 7 && styles.dayCellMuted, day === 15 && styles.dayCellActive]}
+              onPress={() => setSelectedDay(day)}
+              style={[
+                styles.dayCell,
+                day <= 7 && styles.dayCellMuted,
+                day === selectedDay && styles.dayCellActive
+              ]}
             >
               <Text
                 style={[
                   styles.dayText,
                   day <= 7 && styles.dayTextMuted,
-                  day === 15 && styles.dayTextActive
+                  day === selectedDay && styles.dayTextActive
                 ]}
               >
                 {day <= 31 ? day : ""}
               </Text>
               {paymentDays.has(day) ? <View style={styles.dayDot} /> : null}
-            </View>
+            </Pressable>
           ))}
         </View>
 
@@ -156,6 +182,32 @@ export default function CalendarScreen() {
           </Text>
         </View>
       </Card>
+
+      <View style={styles.selectedDayBlock}>
+        <Text style={styles.sectionTitle}>{formatPaymentDate(selectedDateValue)}</Text>
+        {selectedPayments.length === 0 ? (
+          <Card style={styles.emptyDayCard}>
+            <Text style={styles.emptyDayTitle}>На этот день платежей нет</Text>
+            <Text style={styles.emptyDayText}>Выберите другую дату или добавьте новый платёж.</Text>
+          </Card>
+        ) : (
+          selectedPayments.map((payment) => {
+            const overdue = isPaymentOverdue(payment);
+
+            return (
+              <Card key={payment.id} style={[styles.paymentCard, overdue && styles.paymentCardOverdue]}>
+                <View style={styles.paymentRow}>
+                  <View style={styles.paymentText}>
+                    <Text style={styles.paymentTitle}>{payment.title}</Text>
+                    {overdue ? <Text style={styles.overdueText}>Просрочен</Text> : null}
+                  </View>
+                  <Text style={styles.paymentAmount}>{formatPaymentAmount(payment)}</Text>
+                </View>
+              </Card>
+            );
+          })
+        )}
+      </View>
     </ScreenContainer>
   );
 }
@@ -269,5 +321,57 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     flex: 1,
     fontSize: 13
+  },
+  selectedDayBlock: {
+    gap: theme.spacing.sm
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: "700"
+  },
+  emptyDayCard: {
+    gap: theme.spacing.xs
+  },
+  emptyDayTitle: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  emptyDayText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  paymentCard: {
+    gap: theme.spacing.sm
+  },
+  paymentCardOverdue: {
+    borderColor: theme.colors.danger
+  },
+  paymentRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.md,
+    justifyContent: "space-between"
+  },
+  paymentText: {
+    flex: 1,
+    gap: 3
+  },
+  paymentTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  paymentAmount: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  overdueText: {
+    color: theme.colors.danger,
+    fontSize: 12,
+    fontWeight: "700"
   }
 });
