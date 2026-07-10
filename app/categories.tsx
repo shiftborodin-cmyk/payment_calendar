@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
 import {
@@ -19,6 +19,16 @@ import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { theme } from "@/shared/theme/theme";
 
 const categoryColors = ["#36D17D", "#4FB3FF", "#F2C94C", "#7BDCB5", "#66D9EF", "#9BAAA2", "#FF8A65", "#B48CFF"];
+const categoryIcons = [
+  "home-outline",
+  "briefcase-outline",
+  "card-outline",
+  "repeat-outline",
+  "document-text-outline",
+  "car-outline",
+  "cart-outline",
+  "ellipsis-horizontal-outline"
+] as const;
 
 export default function CategoriesScreen() {
   const router = useRouter();
@@ -26,6 +36,7 @@ export default function CategoriesScreen() {
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [name, setName] = useState("");
   const [color, setColor] = useState(categoryColors[0]);
+  const [icon, setIcon] = useState<(typeof categoryIcons)[number]>(categoryIcons[0]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -61,6 +72,7 @@ export default function CategoriesScreen() {
   function resetForm() {
     setName("");
     setColor(categoryColors[0]);
+    setIcon(categoryIcons[0]);
     setEditingId(null);
   }
 
@@ -68,6 +80,9 @@ export default function CategoriesScreen() {
     setEditingId(category.id);
     setName(category.name);
     setColor(category.color);
+    setIcon((categoryIcons.includes(category.icon as (typeof categoryIcons)[number])
+      ? category.icon
+      : categoryIcons[categoryIcons.length - 1]) as (typeof categoryIcons)[number]);
   }
 
   async function handleSave() {
@@ -103,7 +118,7 @@ export default function CategoriesScreen() {
 
     try {
       if (editingId) {
-        await updateLocalCategory(user.id, editingId, { name: trimmedName, color });
+        await updateLocalCategory(user.id, editingId, { name: trimmedName, color, icon });
         setCategories((current) =>
           current.map((category) =>
             category.id === editingId
@@ -111,13 +126,14 @@ export default function CategoriesScreen() {
                   ...category,
                   name: trimmedName,
                   color,
+                  icon,
                   updatedAt: new Date().toISOString()
                 }
               : category
           )
         );
       } else {
-        const createdCategory = await createLocalCategory(user.id, { name: trimmedName, color });
+        const createdCategory = await createLocalCategory(user.id, { name: trimmedName, color, icon });
         setCategories((current) => [...current, createdCategory]);
       }
 
@@ -174,7 +190,20 @@ export default function CategoriesScreen() {
           placeholder="Например, Дом"
           value={name}
         />
-        <View style={styles.colorRow}>
+        <Text style={styles.pickerLabel}>Иконка</Text>
+        <ScrollView contentContainerStyle={styles.iconRow} horizontal showsHorizontalScrollIndicator={false}>
+          {categoryIcons.map((itemIcon) => (
+            <Pressable
+              key={itemIcon}
+              onPress={() => setIcon(itemIcon)}
+              style={[styles.iconButton, icon === itemIcon && styles.iconButtonActive]}
+            >
+              <Ionicons color={icon === itemIcon ? theme.colors.text : theme.colors.textMuted} name={itemIcon} size={21} />
+            </Pressable>
+          ))}
+        </ScrollView>
+        <Text style={styles.pickerLabel}>Цвет</Text>
+        <ScrollView contentContainerStyle={styles.colorRow} horizontal showsHorizontalScrollIndicator={false}>
           {categoryColors.map((itemColor) => (
             <Pressable
               key={itemColor}
@@ -186,7 +215,7 @@ export default function CategoriesScreen() {
               ]}
             />
           ))}
-        </View>
+        </ScrollView>
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.formActions}>
           <AppButton
@@ -214,7 +243,9 @@ export default function CategoriesScreen() {
         {categories.map((category) => (
           <Card key={category.id} style={styles.categoryCard}>
             <View style={styles.categoryInfo}>
-              <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+              <View style={[styles.categoryIcon, { borderColor: category.color }]}>
+                <Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={19} />
+              </View>
               <Text style={styles.categoryName}>{category.name}</Text>
             </View>
             <View style={styles.categoryActions}>
@@ -268,8 +299,34 @@ const styles = StyleSheet.create({
   },
   colorRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm
+    gap: theme.spacing.sm,
+    paddingHorizontal: 2,
+    paddingVertical: 2
+  },
+  iconRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    paddingHorizontal: 2,
+    paddingVertical: 2
+  },
+  pickerLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  iconButton: {
+    alignItems: "center",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: "center",
+    width: 40
+  },
+  iconButtonActive: {
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: theme.colors.primary
   },
   colorButton: {
     borderColor: "transparent",
@@ -327,10 +384,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: theme.spacing.sm
   },
-  categoryDot: {
-    borderRadius: 7,
-    height: 14,
-    width: 14
+  categoryIcon: {
+    alignItems: "center",
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    height: 34,
+    justifyContent: "center",
+    width: 34
   },
   categoryName: {
     color: theme.colors.text,

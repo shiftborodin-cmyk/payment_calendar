@@ -13,6 +13,9 @@ import {
 
 import { useAuth } from "@/features/auth/AuthContext";
 import { getLocalCategories, type LocalCategory } from "@/features/categories/localCategoriesStorage";
+import { getCategoryCardBackground } from "@/features/categories/categoryColors";
+import { useAppSettings } from "@/features/settings/AppSettingsContext";
+import { getCurrentLocale, translate } from "@/features/settings/i18n";
 import {
   addDaysToDateString,
   formatPaymentDate,
@@ -20,10 +23,10 @@ import {
   getMonthEndDateString,
   getMonthStartDateString,
   getTodayDateString,
-  getWeekStartDateString,
   moveDateByMonthsKeepingDesiredDay,
   parsePaymentDate
 } from "@/features/payments/paymentDates";
+import { getForecastForDate, getMonthlyBalanceForecast } from "@/features/payments/paymentForecast";
 import { formatPaymentAmount } from "@/features/payments/paymentFormatters";
 import {
   getPaymentsForDate,
@@ -39,34 +42,37 @@ import type { PaymentItem } from "@/types/payment";
 
 type CalendarView = "month" | "week";
 
-const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const weekDaysRu = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const weekDaysEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function getMonthLabel(dateString: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(getCurrentLocale(), {
     month: "long",
     year: "numeric"
   }).format(parsePaymentDate(dateString));
 }
 
 function getShortDateLabel(dateString: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(getCurrentLocale(), {
     day: "numeric",
     month: "short"
   }).format(parsePaymentDate(dateString));
 }
 
-function getMonthDays(dateString: string) {
+function getMonthCells(dateString: string) {
   const monthStart = getMonthStartDateString(dateString);
   const lastDay = getDayOfMonth(getMonthEndDateString(dateString));
-
-  return Array.from({ length: lastDay }, (_, index) =>
+  const nativeWeekDay = parsePaymentDate(monthStart).getDay();
+  const leadingEmptyCells = nativeWeekDay === 0 ? 6 : nativeWeekDay - 1;
+  const days = Array.from({ length: lastDay }, (_, index) =>
     moveDateByMonthsKeepingDesiredDay(monthStart, 0, index + 1)
   );
+
+  return [...Array.from({ length: leadingEmptyCells }, () => null), ...days];
 }
 
 function getWeekDates(dateString: string) {
-  const weekStart = getWeekStartDateString(dateString);
-  return Array.from({ length: 7 }, (_, index) => addDaysToDateString(weekStart, index));
+  return Array.from({ length: 7 }, (_, index) => addDaysToDateString(dateString, index));
 }
 
 function sumPayments(payments: PaymentItem[]) {
@@ -74,7 +80,7 @@ function sumPayments(payments: PaymentItem[]) {
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("ru-RU", {
+  return new Intl.NumberFormat(getCurrentLocale(), {
     currency: "RUB",
     maximumFractionDigits: 0,
     style: "currency"
@@ -83,14 +89,18 @@ function formatCurrency(value: number) {
 
 export default function CalendarScreen() {
   const { user } = useAuth();
+  const { settings } = useAppSettings();
+  const weekDays = settings.language === "en" ? weekDaysEn : weekDaysRu;
   const [view, setView] = useState<CalendarView>("month");
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
+  const [weekPeriodStart, setWeekPeriodStart] = useState(getTodayDateString());
   const [desiredDayOfMonth, setDesiredDayOfMonth] = useState(getDayOfMonth(getTodayDateString()));
   const [items, setItems] = useState<PaymentItem[]>([]);
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [carouselWidth, setCarouselWidth] = useState(0);
+  const [screenScrollEnabled, setScreenScrollEnabled] = useState(true);
   const viewRef = useRef(view);
   const desiredDayRef = useRef(desiredDayOfMonth);
   const carouselScrollRef = useRef<ScrollView>(null);
@@ -100,11 +110,31 @@ export default function CalendarScreen() {
   viewRef.current = view;
   desiredDayRef.current = desiredDayOfMonth;
 
+  const visibleItems = useMemo(
+    () => items.filter((item) => settings.includeIncome || item.type !== "income"),
+    [items, settings.includeIncome]
+  );
   const selectedPayments = useMemo(
-    () => getPaymentsForDate(items, selectedDate),
-    [items, selectedDate]
+    () => getPaymentsForDate(visibleItems, selectedDate),
+    [selectedDate, visibleItems]
   );
   const selectedTotal = sumPayments(selectedPayments);
+  const selectedMonthForecast = useMemo(
+    () =>
+      settings.includeIncome
+        ? getMonthlyBalanceForecast(visibleItems, selectedDate, settings.openingBalance)
+        : null,
+    [selectedDate, settings.includeIncome, settings.openingBalance, visibleItems]
+  );
+  const selectedForecast = selectedMonthForecast?.get(selectedDate) ?? null;
+  const displayedPeriod = useMemo(() => {
+    const start = view === "month" ? getMonthStartDateString(selectedDate) : weekPeriodStart;
+    const end = view === "month" ? getMonthEndDateString(selectedDate) : addDaysToDateString(weekPeriodStart, 6);
+    const payments = getPaymentsForRange(visibleItems, start, end);
+    const dates = Array.from(new Set(payments.map((payment) => payment.date)));
+
+    return { dates, end, payments, start };
+  }, [selectedDate, view, visibleItems, weekPeriodStart]);
   const categoriesById = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
     [categories]
@@ -112,9 +142,9 @@ export default function CalendarScreen() {
   const carouselDates = useMemo(() => {
     if (view === "week") {
       return [
-        addDaysToDateString(selectedDate, -7),
-        selectedDate,
-        addDaysToDateString(selectedDate, 7)
+        addDaysToDateString(weekPeriodStart, -7),
+        weekPeriodStart,
+        addDaysToDateString(weekPeriodStart, 7)
       ];
     }
 
@@ -123,12 +153,13 @@ export default function CalendarScreen() {
       selectedDate,
       moveDateByMonthsKeepingDesiredDay(selectedDate, 1, desiredDayOfMonth)
     ];
-  }, [desiredDayOfMonth, selectedDate, view]);
+  }, [desiredDayOfMonth, selectedDate, view, weekPeriodStart]);
 
   const navigate = useCallback((direction: -1 | 0 | 1) => {
     if (direction === 0) {
       const today = getTodayDateString();
       setSelectedDate(today);
+      setWeekPeriodStart(today);
       setDesiredDayOfMonth(getDayOfMonth(today));
       return;
     }
@@ -141,6 +172,7 @@ export default function CalendarScreen() {
     }
 
     if (viewRef.current === "week") {
+      setWeekPeriodStart((current) => addDaysToDateString(current, direction * 7));
       setSelectedDate((current) => addDaysToDateString(current, direction * 7));
     }
   }, []);
@@ -181,7 +213,7 @@ export default function CalendarScreen() {
             }
           }
         } catch (loadError) {
-          const message = loadError instanceof Error ? loadError.message : "Не удалось загрузить платежи.";
+          const message = loadError instanceof Error ? loadError.message : translate("Не удалось загрузить платежи.", "Could not load payments.");
 
           if (isActive) {
             setError(message);
@@ -208,24 +240,24 @@ export default function CalendarScreen() {
 
   function getModeLabel() {
     if (loading) {
-      return "Загружаю платежи...";
+      return translate("Загружаю платежи...", "Loading payments...");
     }
 
-    return view === "month" ? "Обзор месяца" : "Неделя с понедельника";
+    return view === "month" ? translate("Обзор месяца", "Month overview") : translate("7 дней от выбранной даты", "7 days from selected date");
   }
 
   function getPeriodPaymentDates(periodDate: string) {
     const periodRange =
       view === "week"
         ? {
-            end: addDaysToDateString(getWeekStartDateString(periodDate), 6),
-            start: getWeekStartDateString(periodDate)
+            end: addDaysToDateString(periodDate, 6),
+            start: periodDate
           }
         : {
             end: getMonthEndDateString(periodDate),
             start: getMonthStartDateString(periodDate)
           };
-    const periodPayments = getPaymentsForRange(items, periodRange.start, periodRange.end);
+    const periodPayments = getPaymentsForRange(visibleItems, periodRange.start, periodRange.end);
 
     return new Set(periodPayments.map((payment) => payment.date));
   }
@@ -264,6 +296,10 @@ export default function CalendarScreen() {
   }
 
   function renderMonthView(periodDate: string, markedDates: Set<string>) {
+    const periodForecast = settings.includeIncome
+      ? getMonthlyBalanceForecast(visibleItems, periodDate, settings.openingBalance)
+      : null;
+
     return (
       <>
         <View style={styles.weekRow}>
@@ -274,15 +310,24 @@ export default function CalendarScreen() {
           ))}
         </View>
         <View style={styles.grid}>
-          {getMonthDays(periodDate).map((dateString) => {
+          {getMonthCells(periodDate).map((dateString, index) => {
+            if (!dateString) {
+              return <View key={`empty-${periodDate}-${index}`} style={styles.dayCellPlaceholder} />;
+            }
+
             const day = getDayOfMonth(dateString);
             const isSelected = dateString === selectedDate;
+            const isNegative = periodForecast?.get(dateString)?.isNegative === true;
 
             return (
               <Pressable
                 key={dateString}
                 onPress={() => handleSelectDate(dateString)}
-                style={[styles.dayCell, isSelected && styles.dayCellActive]}
+                style={[
+                  styles.dayCell,
+                  isNegative && styles.dayCellNegative,
+                  isSelected && styles.dayCellActive
+                ]}
               >
                 <Text style={[styles.dayText, isSelected && styles.dayTextActive]}>{day}</Text>
                 {markedDates.has(dateString) ? <View style={styles.dayDot} /> : null}
@@ -297,20 +342,59 @@ export default function CalendarScreen() {
   function renderWeekView(periodDate: string, markedDates: Set<string>) {
     return (
       <View style={styles.weekCards}>
-        {getWeekDates(periodDate).map((dateString, index) => {
+        {getWeekDates(periodDate).map((dateString) => {
           const isSelected = dateString === selectedDate;
+          const dayPayments = getPaymentsForDate(visibleItems, dateString);
+          const forecast = settings.includeIncome
+            ? getForecastForDate(visibleItems, dateString, settings.openingBalance)
+            : null;
+          const weekDayIndex = parsePaymentDate(dateString).getDay();
 
           return (
             <Pressable
               key={dateString}
               onPress={() => handleSelectDate(dateString)}
-              style={[styles.weekCard, isSelected && styles.weekCardActive]}
+              style={[
+                styles.weekCard,
+                forecast?.isNegative && styles.weekCardNegative,
+                isSelected && styles.weekCardActive
+              ]}
             >
-              <Text style={[styles.weekCardDay, isSelected && styles.weekCardTextActive]}>{weekDays[index]}</Text>
-              <Text style={[styles.weekCardDate, isSelected && styles.weekCardTextActive]}>
-                {getShortDateLabel(dateString)}
-              </Text>
-              {markedDates.has(dateString) ? <View style={styles.dayDot} /> : null}
+              <View style={styles.weekCardHeader}>
+                <View>
+                  <Text style={[styles.weekCardDay, isSelected && styles.weekCardTextActive]}>{weekDays[weekDayIndex]}</Text>
+                  <Text style={[styles.weekCardDate, isSelected && styles.weekCardTextActive]}>
+                    {getShortDateLabel(dateString)}
+                  </Text>
+                </View>
+                <Text style={styles.weekCardSummary}>
+                  {dayPayments.length === 0
+                    ? translate("Нет операций", "No operations")
+                    : `${dayPayments.length} · ${formatCurrency(sumPayments(dayPayments))}`}
+                </Text>
+              </View>
+              {dayPayments.length > 0 ? (
+                <View style={styles.weekMiniList}>
+                  {dayPayments.map((payment) => {
+                    const category = payment.categoryId ? categoriesById.get(payment.categoryId) : null;
+
+                    return (
+                      <View
+                        key={payment.id}
+                        style={[
+                          styles.weekMiniPayment,
+                          category ? { backgroundColor: getCategoryCardBackground(category.color, 0.16) } : null
+                        ]}
+                      >
+                        {category ? <Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={12} /> : null}
+                        <Text numberOfLines={1} style={styles.weekMiniTitle}>{payment.title}</Text>
+                        <Text style={styles.weekMiniAmount}>{formatPaymentAmount(payment)}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+              {markedDates.has(dateString) && dayPayments.length === 0 ? <View style={styles.dayDot} /> : null}
             </Pressable>
           );
         })}
@@ -336,36 +420,45 @@ export default function CalendarScreen() {
         {view === "month" ? renderMonthView(periodDate, markedDates) : null}
         {view === "week" ? renderWeekView(periodDate, markedDates) : null}
 
-        {error ? <Text style={styles.calendarErrorText}>Не удалось загрузить платежи</Text> : null}
+        {error ? <Text style={styles.calendarErrorText}>{translate("Не удалось загрузить платежи", "Could not load payments")}</Text> : null}
       </View>
     );
   }
 
   return (
-    <ScreenContainer contentStyle={styles.screenContent}>
+    <ScreenContainer
+      contentStyle={styles.screenContent}
+      nestedScrollEnabled
+      scrollEnabled={screenScrollEnabled}
+    >
       <View style={styles.header}>
-        <Text style={styles.title}>Календарь</Text>
-        <Text style={styles.subtitle}>Платежи по датам</Text>
+        <Text style={styles.title}>{translate("Календарь", "Calendar")}</Text>
+        <Text style={styles.subtitle}>{translate("Платежи по датам", "Payments by date")}</Text>
       </View>
 
       <SegmentControl
-        onChange={setView}
+        onChange={(nextView) => {
+          if (nextView === "week") {
+            setWeekPeriodStart(selectedDate);
+          }
+          setView(nextView);
+        }}
         options={[
-          { id: "month", label: "Месяц" },
-          { id: "week", label: "Неделя" }
+          { id: "month", label: translate("Месяц", "Month") },
+          { id: "week", label: translate("Неделя", "Week") }
         ]}
         value={view}
       />
 
       <View style={styles.monthControls}>
         <Pressable onPress={() => navigate(-1)} style={styles.monthButton}>
-          <Text style={styles.monthButtonText}>Предыдущий</Text>
+          <Text style={styles.monthButtonText}>{translate("Предыдущий", "Previous")}</Text>
         </Pressable>
         <Pressable onPress={() => navigate(0)} style={styles.monthButton}>
-          <Text style={styles.monthButtonText}>Сегодня</Text>
+          <Text style={styles.monthButtonText}>{translate("Сегодня", "Today")}</Text>
         </Pressable>
         <Pressable onPress={() => navigate(1)} style={styles.monthButton}>
-          <Text style={styles.monthButtonText}>Следующий</Text>
+          <Text style={styles.monthButtonText}>{translate("Следующий", "Next")}</Text>
         </Pressable>
       </View>
 
@@ -373,13 +466,19 @@ export default function CalendarScreen() {
         <View
           style={styles.carouselViewport}
           onLayout={(event) => handleCarouselLayout(event.nativeEvent.layout.width)}
+          onTouchCancel={() => setScreenScrollEnabled(true)}
+          onTouchEnd={() => setScreenScrollEnabled(true)}
+          onTouchStart={() => setScreenScrollEnabled(false)}
         >
           <ScrollView
+            decelerationRate="fast"
             directionalLockEnabled={false}
             disableIntervalMomentum
             horizontal
             nestedScrollEnabled
             onMomentumScrollEnd={handleCarouselScrollEnd}
+            onScrollBeginDrag={() => setScreenScrollEnabled(false)}
+            onScrollEndDrag={() => setScreenScrollEnabled(true)}
             pagingEnabled
             ref={carouselScrollRef}
             scrollEventThrottle={16}
@@ -393,13 +492,18 @@ export default function CalendarScreen() {
       <View style={styles.selectedDayBlock}>
         <Text style={styles.sectionTitle}>{formatPaymentDate(selectedDate)}</Text>
         <Card style={styles.daySummaryCard}>
-          <Text style={styles.daySummaryText}>Платежей: {selectedPayments.length}</Text>
-          <Text style={styles.daySummaryText}>Сумма: {formatCurrency(selectedTotal)}</Text>
+          <Text style={styles.daySummaryText}>{translate("Операций", "Operations")}: {selectedPayments.length}</Text>
+          <Text style={styles.daySummaryText}>{translate("Сумма", "Total")}: {formatCurrency(selectedTotal)}</Text>
         </Card>
+        {settings.includeIncome && selectedForecast ? (
+          <Text style={[styles.forecastText, selectedForecast.isNegative && styles.forecastTextNegative]}>
+            {translate("Прогноз остатка", "Forecast balance")}: {formatCurrency(selectedForecast.balance)}
+          </Text>
+        ) : null}
         {selectedPayments.length === 0 ? (
           <Card style={styles.emptyDayCard}>
-            <Text style={styles.emptyDayTitle}>На этот день платежей нет</Text>
-            <Text style={styles.emptyDayText}>Выберите другую дату или добавьте новый платёж.</Text>
+            <Text style={styles.emptyDayTitle}>{translate("На этот день платежей нет", "No payments for this date")}</Text>
+            <Text style={styles.emptyDayText}>{translate("Выберите другую дату или добавьте новый платёж.", "Choose another date or add a new payment.")}</Text>
           </Card>
         ) : (
           selectedPayments.map((payment) => {
@@ -407,21 +511,77 @@ export default function CalendarScreen() {
             const category = payment.categoryId ? categoriesById.get(payment.categoryId) : null;
 
             return (
-              <Card key={payment.id} style={[styles.paymentCard, overdue && styles.paymentCardOverdue]}>
+              <Card
+                key={payment.id}
+                style={[
+                  styles.paymentCard,
+                  category ? { backgroundColor: getCategoryCardBackground(category.color) } : null,
+                  overdue && styles.paymentCardOverdue
+                ]}
+              >
                 <View style={styles.paymentRow}>
                   <View style={styles.paymentText}>
                     <Text style={styles.paymentTitle}>{payment.title}</Text>
                     {category ? (
                       <View style={styles.categoryBadge}>
-                        <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+                        <Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={14} />
                         <Text style={styles.categoryText}>{category.name}</Text>
                       </View>
                     ) : null}
-                    {overdue ? <Text style={styles.overdueText}>Просрочен</Text> : null}
-                    {payment.isGeneratedOccurrence ? <Text style={styles.repeatText}>Повторяется</Text> : null}
+                    {payment.type === "income" ? <Text style={styles.incomeText}>{translate("Доход", "Income")}</Text> : null}
+                    {overdue ? <Text style={styles.overdueText}>{translate("Просрочен", "Overdue")}</Text> : null}
+                    {payment.isGeneratedOccurrence ? <Text style={styles.repeatText}>{translate("Повторяется", "Repeating")}</Text> : null}
                   </View>
                   <Text style={styles.paymentAmount}>{formatPaymentAmount(payment)}</Text>
                 </View>
+              </Card>
+            );
+          })
+        )}
+      </View>
+
+      <View style={styles.periodPaymentsBlock}>
+        <Text style={styles.sectionTitle}>
+          {view === "month"
+            ? translate("Все операции месяца", "All operations this month")
+            : translate("Операции за выбранные 7 дней", "Operations for the selected 7 days")}
+        </Text>
+        <Text style={styles.periodSubtitle}>
+          {formatPaymentDate(displayedPeriod.start)} — {formatPaymentDate(displayedPeriod.end)}
+        </Text>
+        {displayedPeriod.payments.length === 0 ? (
+          <Card style={styles.emptyDayCard}>
+            <Text style={styles.emptyDayTitle}>{translate("В этом периоде операций нет", "No operations in this period")}</Text>
+          </Card>
+        ) : (
+          displayedPeriod.dates.map((dateString) => {
+            const datePayments = displayedPeriod.payments.filter((payment) => payment.date === dateString);
+
+            return (
+              <Card key={dateString} style={styles.periodDateCard}>
+                <View style={styles.periodDateHeader}>
+                  <Text style={styles.periodDateTitle}>{formatPaymentDate(dateString)}</Text>
+                  <Text style={styles.periodDateTotal}>{formatCurrency(sumPayments(datePayments))}</Text>
+                </View>
+                {datePayments.map((payment) => {
+                  const category = payment.categoryId ? categoriesById.get(payment.categoryId) : null;
+
+                  return (
+                    <View
+                      key={payment.id}
+                      style={[
+                        styles.periodPaymentRow,
+                        category ? { backgroundColor: getCategoryCardBackground(category.color) } : null
+                      ]}
+                    >
+                      <View style={styles.periodPaymentName}>
+                        {category ? <Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={12} /> : null}
+                        <Text numberOfLines={1} style={styles.periodPaymentTitle}>{payment.title}</Text>
+                      </View>
+                      <Text style={styles.periodPaymentAmount}>{formatPaymentAmount(payment)}</Text>
+                    </View>
+                  );
+                })}
               </Card>
             );
           })
@@ -474,7 +634,7 @@ const styles = StyleSheet.create({
     overflow: "hidden"
   },
   carouselPage: {
-    gap: theme.spacing.sm
+    gap: 6
   },
   calendarTopRow: {
     alignItems: "center",
@@ -517,16 +677,22 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     alignItems: "center",
-    aspectRatio: 1,
     borderRadius: theme.radius.sm,
+    height: 38,
     justifyContent: "center",
-    marginBottom: 2,
+    width: `${100 / 7}%`
+  },
+  dayCellPlaceholder: {
+    height: 38,
     width: `${100 / 7}%`
   },
   dayCellActive: {
     backgroundColor: theme.colors.primarySoft,
     borderColor: theme.colors.primary,
     borderWidth: 1
+  },
+  dayCellNegative: {
+    backgroundColor: "rgba(210, 112, 112, 0.16)"
   },
   dayText: {
     color: theme.colors.text,
@@ -545,24 +711,29 @@ const styles = StyleSheet.create({
     width: 6
   },
   weekCards: {
-    flexDirection: "row",
-    gap: 4
+    gap: theme.spacing.sm
   },
   weekCard: {
-    alignItems: "center",
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    flex: 1,
-    minHeight: 64,
-    justifyContent: "center",
-    paddingHorizontal: 2,
-    paddingVertical: theme.spacing.xs
+    gap: theme.spacing.sm,
+    minHeight: 92,
+    padding: theme.spacing.sm
   },
   weekCardActive: {
     backgroundColor: theme.colors.primarySoft,
     borderColor: theme.colors.primary
+  },
+  weekCardNegative: {
+    backgroundColor: "rgba(210, 112, 112, 0.16)",
+    borderColor: "rgba(210, 112, 112, 0.38)"
+  },
+  weekCardHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between"
   },
   weekCardDay: {
     color: theme.colors.textMuted,
@@ -577,6 +748,36 @@ const styles = StyleSheet.create({
   },
   weekCardTextActive: {
     color: theme.colors.primary
+  },
+  weekCardSummary: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600"
+  },
+  weekMiniList: {
+    gap: 5
+  },
+  weekMiniPayment: {
+    alignItems: "center",
+    backgroundColor: theme.colors.surfaceElevated,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: theme.spacing.xs,
+    minHeight: 32,
+    paddingHorizontal: theme.spacing.sm
+  },
+  weekMiniTitle: {
+    color: theme.colors.text,
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600"
+  },
+  weekMiniAmount: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: "700"
   },
   calendarErrorText: {
     color: theme.colors.textMuted,
@@ -599,6 +800,14 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 14,
     fontWeight: "700"
+  },
+  forecastText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  forecastTextNegative: {
+    color: "#D98A8A"
   },
   emptyDayCard: {
     gap: theme.spacing.xs
@@ -649,6 +858,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700"
   },
+  incomeText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: "700"
+  },
   categoryBadge: {
     alignItems: "center",
     flexDirection: "row",
@@ -662,6 +876,62 @@ const styles = StyleSheet.create({
   categoryText: {
     color: theme.colors.textMuted,
     fontSize: 12,
+    fontWeight: "700"
+  },
+  periodPaymentsBlock: {
+    gap: theme.spacing.sm
+  },
+  periodSubtitle: {
+    color: theme.colors.textMuted,
+    fontSize: 13
+  },
+  periodDateCard: {
+    gap: theme.spacing.sm
+  },
+  periodDateHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    justifyContent: "space-between"
+  },
+  periodDateTitle: {
+    color: theme.colors.text,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  periodDateTotal: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  periodPaymentRow: {
+    alignItems: "center",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    justifyContent: "space-between",
+    minHeight: 38,
+    paddingHorizontal: theme.spacing.sm
+  },
+  periodPaymentName: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: theme.spacing.xs
+  },
+  periodPaymentTitle: {
+    color: theme.colors.text,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  periodPaymentAmount: {
+    color: theme.colors.text,
+    fontSize: 13,
     fontWeight: "700"
   }
 });

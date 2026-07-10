@@ -1,5 +1,7 @@
 export type PaymentStatus = "scheduled" | "paid" | "overdue";
 
+export type PaymentType = "expense" | "income";
+
 export type RepeatRule = "none" | "weekly" | "monthly" | "yearly";
 
 export type NotificationOffset =
@@ -19,6 +21,7 @@ export type PaymentItem = {
   time: string | null;
   comment: string | null;
   status: PaymentStatus;
+  type: PaymentType;
   repeatRule: RepeatRule;
   notificationOffsets: NotificationOffset[];
   originalPaymentId?: string;

@@ -4,16 +4,18 @@ import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "@/features/auth/AuthContext";
+import { AppSettingsProvider, useAppSettings } from "@/features/settings/AppSettingsContext";
 import { LoadingScreen } from "@/shared/ui/LoadingScreen";
 import { theme } from "@/shared/theme/theme";
 
 function RootLayoutNav() {
   const { session, isLoading } = useAuth();
+  const { isLoading: isSettingsLoading } = useAppSettings();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading || isSettingsLoading) {
       return;
     }
 
@@ -27,9 +29,9 @@ function RootLayoutNav() {
     if (session && inAuthGroup) {
       router.replace("/(tabs)");
     }
-  }, [session, isLoading, segments, router]);
+  }, [isLoading, isSettingsLoading, router, segments, session]);
 
-  if (isLoading) {
+  if (isLoading || isSettingsLoading) {
     return <LoadingScreen />;
   }
 
@@ -54,7 +56,9 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <RootLayoutNav />
+        <AppSettingsProvider>
+          <RootLayoutNav />
+        </AppSettingsProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

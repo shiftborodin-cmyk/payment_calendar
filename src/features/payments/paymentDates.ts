@@ -1,3 +1,5 @@
+import { getCurrentLocale } from "@/features/settings/i18n";
+
 function padDatePart(value: number) {
   return value.toString().padStart(2, "0");
 }
@@ -20,7 +22,7 @@ export function isValidPaymentDate(dateString: string) {
 }
 
 export function formatPaymentDate(dateString: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(getCurrentLocale(), {
     day: "numeric",
     month: "long",
     year: "numeric"

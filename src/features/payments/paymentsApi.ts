@@ -2,7 +2,7 @@ import {
   createLocalPayment,
   deleteLocalPayment,
   getLocalPayments,
-  markLocalPaymentPaid,
+  setLocalPaymentStatus,
   updateLocalPayment,
   type LocalPaymentInput
 } from "@/features/payments/localPaymentsStorage";
@@ -29,7 +29,8 @@ export async function createPaymentItem(input: CreatePaymentInput) {
     categoryId: input.categoryId,
     date: input.date,
     comment: input.comment,
-    repeatRule: input.repeatRule
+    repeatRule: input.repeatRule,
+    type: input.type
   });
 }
 
@@ -40,12 +41,13 @@ export async function updatePaymentItem(id: string, input: UpdatePaymentInput) {
     categoryId: input.categoryId,
     date: input.date,
     comment: input.comment,
-    repeatRule: input.repeatRule
+    repeatRule: input.repeatRule,
+    type: input.type
   });
 }
 
-export async function markPaymentItemPaid(userId: string, id: string) {
-  await markLocalPaymentPaid(userId, id);
+export async function setPaymentItemStatus(userId: string, id: string, status: "scheduled" | "paid") {
+  await setLocalPaymentStatus(userId, id, status);
 }
 
 export async function deletePaymentItem(userId: string, id: string) {

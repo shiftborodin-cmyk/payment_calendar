@@ -3,6 +3,7 @@ import { Tabs } from "expo-router";
 import type { ComponentProps } from "react";
 import type { ColorValue } from "react-native";
 
+import { translate } from "@/features/settings/i18n";
 import { theme } from "@/shared/theme/theme";
 
 type TabIconName = ComponentProps<typeof Ionicons>["name"];
@@ -16,6 +17,7 @@ function tabIcon(name: TabIconName) {
 export default function TabsLayout() {
   return (
     <Tabs
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: theme.colors.background },
@@ -41,28 +43,28 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Главная",
+          title: translate("Главная", "Home"),
           tabBarIcon: tabIcon("home-outline")
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
-          title: "Календарь",
+          title: translate("Календарь", "Calendar"),
           tabBarIcon: tabIcon("calendar-outline")
         }}
       />
       <Tabs.Screen
         name="list"
         options={{
-          title: "Список",
+          title: translate("Список", "List"),
           tabBarIcon: tabIcon("list-outline")
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Настройки",
+          title: translate("Настройки", "Settings"),
           tabBarIcon: tabIcon("settings-outline")
         }}
       />

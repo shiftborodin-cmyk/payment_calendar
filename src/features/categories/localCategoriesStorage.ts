@@ -5,6 +5,7 @@ export type LocalCategory = {
   userId: string;
   name: string;
   color: string;
+  icon: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -12,6 +13,7 @@ export type LocalCategory = {
 export type LocalCategoryInput = {
   name: string;
   color: string;
+  icon: string;
 };
 
 type LocalCategoryRow = {
@@ -19,17 +21,18 @@ type LocalCategoryRow = {
   user_id: string;
   name: string;
   color: string;
+  icon?: string;
   created_at: string;
   updated_at: string;
 };
 
-const defaultCategories: Array<Pick<LocalCategoryRow, "name" | "color">> = [
-  { name: "Дом", color: "#36D17D" },
-  { name: "Работа", color: "#4FB3FF" },
-  { name: "Кредиты", color: "#F2C94C" },
-  { name: "Подписки", color: "#7BDCB5" },
-  { name: "Налоги", color: "#66D9EF" },
-  { name: "Прочее", color: "#9BAAA2" }
+const defaultCategories: Array<Pick<LocalCategoryRow, "name" | "color" | "icon">> = [
+  { name: "Дом", color: "#36D17D", icon: "home-outline" },
+  { name: "Работа", color: "#4FB3FF", icon: "briefcase-outline" },
+  { name: "Кредиты", color: "#F2C94C", icon: "card-outline" },
+  { name: "Подписки", color: "#7BDCB5", icon: "repeat-outline" },
+  { name: "Налоги", color: "#66D9EF", icon: "document-text-outline" },
+  { name: "Прочее", color: "#9BAAA2", icon: "ellipsis-horizontal-outline" }
 ];
 
 const localOperationTimeoutMs = 5000;
@@ -105,12 +108,19 @@ function createLocalId() {
   return `category_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
+function getLegacyCategoryIcon(name: string) {
+  const normalizedName = name.trim().toLocaleLowerCase("ru-RU");
+  return defaultCategories.find((category) => category.name.toLocaleLowerCase("ru-RU") === normalizedName)?.icon
+    ?? "wallet-outline";
+}
+
 function mapLocalCategory(row: LocalCategoryRow): LocalCategory {
   return {
     id: row.id,
     userId: row.user_id,
     name: row.name,
     color: row.color,
+    icon: row.icon ?? getLegacyCategoryIcon(row.name),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -130,6 +140,7 @@ async function readRows(userId: string) {
       user_id: userId,
       name: category.name,
       color: category.color,
+      icon: category.icon,
       created_at: now,
       updated_at: now
     }));
@@ -166,6 +177,7 @@ export async function createLocalCategory(userId: string, input: LocalCategoryIn
       user_id: userId,
       name: input.name,
       color: input.color,
+      icon: input.icon,
       created_at: now,
       updated_at: now
     };
@@ -186,6 +198,7 @@ export async function updateLocalCategory(userId: string, categoryId: string, in
             ...category,
             name: input.name,
             color: input.color,
+            icon: input.icon,
             updated_at: now
           }
         : category

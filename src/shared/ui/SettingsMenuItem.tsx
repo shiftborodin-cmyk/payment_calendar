@@ -9,13 +9,16 @@ type SettingsMenuItemProps = {
   title: string;
   subtitle?: string;
   onPress?: () => void;
+  badge?: string;
+  disabled?: boolean;
 };
 
-export function SettingsMenuItem({ icon, title, subtitle, onPress }: SettingsMenuItemProps) {
+export function SettingsMenuItem({ icon, title, subtitle, onPress, badge, disabled = false }: SettingsMenuItemProps) {
   return (
     <Pressable
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+      style={({ pressed }) => [styles.item, disabled && styles.itemDisabled, pressed && styles.itemPressed]}
     >
       <View style={styles.iconWrap}>
         <Ionicons color={theme.colors.primary} name={icon} size={20} />
@@ -24,7 +27,8 @@ export function SettingsMenuItem({ icon, title, subtitle, onPress }: SettingsMen
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
-      <Ionicons color={theme.colors.textMuted} name="chevron-forward" size={18} />
+      {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+      {!disabled ? <Ionicons color={theme.colors.textMuted} name="chevron-forward" size={18} /> : null}
     </Pressable>
   );
 }
@@ -42,6 +46,9 @@ const styles = StyleSheet.create({
   },
   itemPressed: {
     opacity: 0.85
+  },
+  itemDisabled: {
+    opacity: 0.72
   },
   iconWrap: {
     alignItems: "center",
@@ -63,5 +70,15 @@ const styles = StyleSheet.create({
   subtitle: {
     color: theme.colors.textMuted,
     fontSize: 13
+  },
+  badge: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.sm,
+    color: theme.colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+    overflow: "hidden",
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 5
   }
 });

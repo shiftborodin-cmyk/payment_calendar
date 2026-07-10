@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import type { PaymentItem, PaymentStatus, RepeatRule } from "@/types/payment";
+import type { PaymentItem, PaymentStatus, PaymentType, RepeatRule } from "@/types/payment";
 
 export type LocalPaymentInput = {
   title: string;
@@ -9,6 +9,7 @@ export type LocalPaymentInput = {
   comment: string | null;
   repeatRule: RepeatRule;
   categoryId?: string | null;
+  type: PaymentType;
 };
 
 type LocalPaymentRow = {
@@ -22,6 +23,7 @@ type LocalPaymentRow = {
   comment: string | null;
   status: PaymentStatus;
   repeat_rule?: RepeatRule;
+  type?: PaymentType;
   created_at: string;
   updated_at: string;
 };
@@ -48,6 +50,10 @@ function getOperationName(label: string) {
 
   if (label.startsWith("Отметка")) {
     return "markPaid";
+  }
+
+  if (label.startsWith("Изменение статуса")) {
+    return "status";
   }
 
   return "operation";
@@ -115,6 +121,7 @@ function mapLocalPayment(row: LocalPaymentRow): PaymentItem {
     time: null,
     comment: row.comment,
     status: row.status,
+    type: row.type === "income" ? "income" : "expense",
     repeatRule: row.repeat_rule ?? "none",
     notificationOffsets: [],
     createdAt: row.created_at,
@@ -168,6 +175,7 @@ export async function createLocalPayment(userId: string, input: LocalPaymentInpu
       date: input.date,
       comment: input.comment,
       status: "scheduled",
+      type: input.type,
       repeat_rule: input.repeatRule,
       created_at: now,
       updated_at: now
@@ -193,6 +201,7 @@ export async function updateLocalPayment(userId: string, paymentId: string, inpu
             date: input.date,
             comment: input.comment,
             repeat_rule: input.repeatRule,
+            type: input.type,
             updated_at: now
           }
         : payment
@@ -209,15 +218,15 @@ export async function deleteLocalPayment(userId: string, paymentId: string) {
   });
 }
 
-export async function markLocalPaymentPaid(userId: string, paymentId: string) {
-  return withLocalDiagnostics("Отметка локального платежа оплаченной", async () => {
+export async function setLocalPaymentStatus(userId: string, paymentId: string, status: PaymentStatus) {
+  return withLocalDiagnostics("Изменение статуса локального платежа", async () => {
     const rows = await readRows(userId);
     const now = new Date().toISOString();
     const nextRows = rows.map((payment) =>
       payment.id === paymentId
         ? {
             ...payment,
-            status: "paid" as PaymentStatus,
+            status,
             updated_at: now
           }
         : payment

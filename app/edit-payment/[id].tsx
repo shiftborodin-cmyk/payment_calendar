@@ -5,6 +5,7 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/features/auth/AuthContext";
 import { PaymentForm, type PaymentFormValues } from "@/features/payments/PaymentForm";
 import { fetchPaymentItemById, updatePaymentItem } from "@/features/payments/paymentsApi";
+import { translate } from "@/features/settings/i18n";
 import { AppButton } from "@/shared/ui/AppButton";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { theme } from "@/shared/theme/theme";
@@ -85,8 +86,8 @@ export default function EditPaymentScreen() {
   return (
     <ScreenContainer keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
-        <Text style={styles.title}>Редактировать платёж</Text>
-        <Text style={styles.subtitle}>Измените данные и сохраните платёж локально.</Text>
+        <Text style={styles.title}>{translate("Редактировать операцию", "Edit operation")}</Text>
+        <Text style={styles.subtitle}>{translate("Измените данные и сохраните операцию локально.", "Update the details and save the operation locally.")}</Text>
       </View>
 
       {loading ? <Text style={styles.stateText}>Загружаю платёж...</Text> : null}
@@ -98,7 +99,7 @@ export default function EditPaymentScreen() {
           loading={saving}
           onCancel={() => router.back()}
           onSubmit={handleSave}
-          submitTitle="Сохранить изменения"
+          submitTitle={translate("Сохранить изменения", "Save changes")}
         />
       ) : null}
 

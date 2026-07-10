@@ -7,13 +7,15 @@ type ScreenContainerProps = {
   children: React.ReactNode;
   scroll?: boolean;
   contentStyle?: ViewStyle;
-} & Pick<ScrollViewProps, "keyboardShouldPersistTaps">;
+} & Pick<ScrollViewProps, "keyboardShouldPersistTaps" | "nestedScrollEnabled" | "scrollEnabled">;
 
 export function ScreenContainer({
   children,
   scroll = true,
   contentStyle,
-  keyboardShouldPersistTaps
+  keyboardShouldPersistTaps,
+  nestedScrollEnabled,
+  scrollEnabled
 }: ScreenContainerProps) {
   if (scroll) {
     return (
@@ -21,6 +23,8 @@ export function ScreenContainer({
         <ScrollView
           contentContainerStyle={[styles.content, contentStyle]}
           keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+          nestedScrollEnabled={nestedScrollEnabled}
+          scrollEnabled={scrollEnabled}
           showsVerticalScrollIndicator={false}
         >
           {children}

@@ -1,15 +1,18 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
 import { getLocalCategories, type LocalCategory } from "@/features/categories/localCategoriesStorage";
+import { useAppSettings } from "@/features/settings/AppSettingsContext";
+import { translate } from "@/features/settings/i18n";
 import { isValidPaymentDate } from "@/features/payments/paymentDates";
 import { getTodayDateInputValue } from "@/features/payments/paymentFormatters";
 import { getDateAfterDays, getDateAfterMonths } from "@/features/payments/paymentOccurrences";
 import { AppButton } from "@/shared/ui/AppButton";
 import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { theme } from "@/shared/theme/theme";
-import type { PaymentItem, RepeatRule } from "@/types/payment";
+import type { PaymentItem, PaymentType, RepeatRule } from "@/types/payment";
 
 export type PaymentFormValues = {
   title: string;
@@ -18,6 +21,7 @@ export type PaymentFormValues = {
   comment: string | null;
   repeatRule: RepeatRule;
   categoryId?: string | null;
+  type: PaymentType;
 };
 
 type PaymentFormProps = {
@@ -27,6 +31,8 @@ type PaymentFormProps = {
   error?: string | null;
   onSubmit: (values: PaymentFormValues) => Promise<void>;
   onCancel: () => void;
+  initialType?: PaymentType;
+  lockType?: boolean;
 };
 
 const quickDateOptions = [
@@ -49,15 +55,19 @@ export function PaymentForm({
   loading = false,
   error,
   onSubmit,
-  onCancel
+  onCancel,
+  initialType = "expense",
+  lockType = false
 }: PaymentFormProps) {
   const { user } = useAuth();
+  const { settings } = useAppSettings();
   const [title, setTitle] = useState(initialPayment?.title ?? "");
   const [amount, setAmount] = useState(initialPayment?.amount?.toString() ?? "");
   const [date, setDate] = useState(initialPayment?.date ?? getTodayDateInputValue());
   const [comment, setComment] = useState(initialPayment?.comment ?? "");
   const [repeatRule, setRepeatRule] = useState<RepeatRule>(initialPayment?.repeatRule ?? "none");
   const [categoryId, setCategoryId] = useState<string | null>(initialPayment?.categoryId ?? null);
+  const [type, setType] = useState<PaymentType>(initialPayment?.type ?? initialType);
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -91,6 +101,15 @@ export function PaymentForm({
     };
   }, [user]);
 
+  useEffect(() => {
+    if (!initialPayment) {
+      setType(initialType);
+      if (initialType === "income") {
+        setCategoryId(null);
+      }
+    }
+  }, [initialPayment, initialType]);
+
   async function handleSubmit() {
     if (loading) {
       return;
@@ -113,8 +132,8 @@ export function PaymentForm({
       return;
     }
 
-    if (parsedAmount !== null && Number.isNaN(parsedAmount)) {
-      setFormError("Введите сумму числом или оставьте поле пустым.");
+    if (parsedAmount !== null && (!Number.isFinite(parsedAmount) || parsedAmount < 0)) {
+      setFormError("Введите сумму числом не меньше нуля или оставьте поле пустым.");
       return;
     }
 
@@ -124,7 +143,8 @@ export function PaymentForm({
       date: trimmedDate,
       comment: comment.trim() || null,
       repeatRule,
-      categoryId
+      categoryId: type === "income" ? null : categoryId,
+      type
     });
   }
 
@@ -134,6 +154,27 @@ export function PaymentForm({
       style={styles.keyboard}
     >
       <View style={styles.form}>
+        {settings.includeIncome && !lockType ? (
+          <View style={styles.group}>
+            <Text style={styles.groupLabel}>{translate("Тип операции", "Operation type")}</Text>
+            <View style={styles.chipGroup}>
+              {([
+                { label: translate("Расход", "Expense"), value: "expense" as const },
+                { label: translate("Доход", "Income"), value: "income" as const }
+              ]).map((option) => (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setType(option.value)}
+                  style={[styles.chip, type === option.value && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, type === option.value && styles.chipTextActive]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
         <AppTextInput
           label="Название"
           onChangeText={setTitle}
@@ -156,9 +197,20 @@ export function PaymentForm({
         />
         <View style={styles.chipGroup}>
           {quickDateOptions.map((option) => (
-            <Pressable key={option.label} onPress={() => setDate(option.getValue())} style={styles.chip}>
-              <Text style={styles.chipText}>{option.label}</Text>
-            </Pressable>
+            (() => {
+              const optionDate = option.getValue();
+              const isActive = date === optionDate;
+
+              return (
+                <Pressable
+                  key={option.label}
+                  onPress={() => setDate(optionDate)}
+                  style={[styles.chip, isActive && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{option.label}</Text>
+                </Pressable>
+              );
+            })()
           ))}
         </View>
         <AppTextInput
@@ -170,7 +222,7 @@ export function PaymentForm({
           value={comment}
         />
 
-        <View style={styles.group}>
+        {type === "expense" ? <View style={styles.group}>
           <Text style={styles.groupLabel}>Категория</Text>
           <View style={styles.chipGroup}>
             <Pressable
@@ -187,7 +239,7 @@ export function PaymentForm({
                 onPress={() => setCategoryId(category.id)}
                 style={[styles.chip, categoryId === category.id && styles.chipActive]}
               >
-                <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+                <Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={16} />
                 <Text style={[styles.chipText, categoryId === category.id && styles.chipTextActive]}>
                   {category.name}
                 </Text>
@@ -195,7 +247,7 @@ export function PaymentForm({
             ))}
           </View>
           {categoryError ? <Text style={styles.hintText}>{categoryError}</Text> : null}
-        </View>
+        </View> : null}
 
         <View style={styles.group}>
           <Text style={styles.groupLabel}>Повторяемость</Text>

@@ -5,6 +5,9 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
 import { getLocalCategories, type LocalCategory } from "@/features/categories/localCategoriesStorage";
+import { getCategoryCardBackground } from "@/features/categories/categoryColors";
+import { useAppSettings } from "@/features/settings/AppSettingsContext";
+import { translate } from "@/features/settings/i18n";
 import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
 import {
   expandPaymentOccurrences,
@@ -12,7 +15,7 @@ import {
   isPaymentOverdue,
   sortPaymentsByDate
 } from "@/features/payments/paymentOccurrences";
-import { deletePaymentItem, fetchPaymentItems, markPaymentItemPaid } from "@/features/payments/paymentsApi";
+import { deletePaymentItem, fetchPaymentItems, setPaymentItemStatus } from "@/features/payments/paymentsApi";
 import { AppButton } from "@/shared/ui/AppButton";
 import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { Card } from "@/shared/ui/Card";
@@ -21,40 +24,55 @@ import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { theme } from "@/shared/theme/theme";
 import type { PaymentItem } from "@/types/payment";
 
-type PaymentFilter = "all" | "unpaid" | "overdue" | "paid" | "repeating";
+type PaymentFilter = "all" | "unpaid" | "overdue" | "paid";
 
-const filterOptions: Array<{ label: string; value: PaymentFilter }> = [
-  { label: "Все", value: "all" },
-  { label: "Неоплаченные", value: "unpaid" },
-  { label: "Просроченные", value: "overdue" },
-  { label: "Оплаченные", value: "paid" },
-  { label: "Повторяющиеся", value: "repeating" }
+const filterOptions: Array<{ ru: string; en: string; value: PaymentFilter }> = [
+  { ru: "Все", en: "All", value: "all" },
+  { ru: "Активные", en: "Active", value: "unpaid" },
+  { ru: "Просроченные", en: "Overdue", value: "overdue" },
+  { ru: "Оплаченные", en: "Paid", value: "paid" }
 ];
 
 export default function ListScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { settings } = useAppSettings();
   const [items, setItems] = useState<PaymentItem[]>([]);
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<PaymentFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [repeatingOnly, setRepeatingOnly] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [search, setSearch] = useState("");
   const focusedRef = useRef(false);
   const loadingRef = useRef(false);
+  const availableItems = useMemo(
+    () => items.filter((item) => settings.includeIncome || item.type !== "income"),
+    [items, settings.includeIncome]
+  );
   const expandedItems = useMemo(
     () =>
-      expandPaymentOccurrences(items, {
+      expandPaymentOccurrences(availableItems, {
         startDate: "1970-01-01"
       }),
-    [items]
+    [availableItems]
   );
   const visibleItems = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("ru-RU");
 
     return expandedItems.filter((item) => {
       if (normalizedSearch && !item.title.toLocaleLowerCase("ru-RU").includes(normalizedSearch)) {
+        return false;
+      }
+
+      if (categoryFilter && item.categoryId !== categoryFilter) {
+        return false;
+      }
+
+      if (repeatingOnly && item.repeatRule === "none" && !item.isGeneratedOccurrence) {
         return false;
       }
 
@@ -70,34 +88,31 @@ export default function ListScreen() {
         return item.status === "paid";
       }
 
-      if (filter === "repeating") {
-        return item.repeatRule !== "none" || Boolean(item.isGeneratedOccurrence);
-      }
-
       return true;
     });
-  }, [expandedItems, filter, search]);
+  }, [categoryFilter, expandedItems, filter, repeatingOnly, search]);
   const groupedItems = useMemo(
     () => [
       {
-        title: "Просроченные",
+        title: translate("Просроченные", "Overdue"),
         data: sortPaymentsByDate(visibleItems.filter((item) => isPaymentOverdue(item)))
       },
       {
-        title: "Ближайшие",
+        title: translate("Ближайшие", "Upcoming"),
         data: sortPaymentsByDate(visibleItems.filter((item) => item.status !== "paid" && !isPaymentOverdue(item)))
       },
       {
-        title: "Оплаченные",
+        title: translate("Оплаченные", "Paid"),
         data: sortPaymentsByDate(visibleItems.filter((item) => item.status === "paid"))
       }
     ],
-    [visibleItems]
+    [settings.language, visibleItems]
   );
   const categoriesById = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
     [categories]
   );
+  const advancedFilterCount = Number(Boolean(categoryFilter)) + Number(repeatingOnly);
 
   const loadItems = useCallback(async () => {
     if (!user) {
@@ -124,7 +139,7 @@ export default function ListScreen() {
         }
       }
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : "Не удалось загрузить платежи.";
+      const message = loadError instanceof Error ? loadError.message : translate("Не удалось загрузить платежи.", "Could not load payments.");
 
       if (focusedRef.current) {
         setError(message);
@@ -149,28 +164,28 @@ export default function ListScreen() {
     }, [loadItems])
   );
 
-  async function handleMarkPaid(item: PaymentItem) {
+  async function handleTogglePaid(item: PaymentItem) {
     if (!user) {
-      Alert.alert("Ошибка", "Нужно войти в аккаунт.");
+      Alert.alert(translate("Ошибка", "Error"), translate("Нужно войти в аккаунт.", "Please sign in."));
       return;
     }
 
     setActionId(item.id);
 
     try {
-      await markPaymentItemPaid(user.id, item.id);
+      await setPaymentItemStatus(user.id, item.id, item.status === "paid" ? "scheduled" : "paid");
       await loadItems();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Не удалось отметить платёж.";
-      Alert.alert("Ошибка", message);
+      const message = error instanceof Error ? error.message : translate("Не удалось изменить статус платежа.", "Could not change payment status.");
+      Alert.alert(translate("Ошибка", "Error"), message);
     } finally {
       setActionId(null);
     }
   }
 
-  async function handleDelete(item: PaymentItem) {
+  async function deleteItem(item: PaymentItem) {
     if (!user) {
-      Alert.alert("Ошибка", "Нужно войти в аккаунт.");
+      Alert.alert(translate("Ошибка", "Error"), translate("Нужно войти в аккаунт.", "Please sign in."));
       return;
     }
 
@@ -180,32 +195,47 @@ export default function ListScreen() {
       await deletePaymentItem(user.id, item.id);
       await loadItems();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Не удалось удалить платёж.";
-      Alert.alert("Ошибка", message);
+      const message = error instanceof Error ? error.message : translate("Не удалось удалить платёж.", "Could not delete payment.");
+      Alert.alert(translate("Ошибка", "Error"), message);
     } finally {
       setActionId(null);
     }
   }
 
+  function handleDelete(item: PaymentItem) {
+    Alert.alert(
+      translate("Удалить платёж?", "Delete payment?"),
+      translate(`«${item.title}» будет удалён без возможности восстановления.`, `“${item.title}” will be permanently deleted.`),
+      [
+        { text: translate("Отмена", "Cancel"), style: "cancel" },
+        { text: translate("Удалить", "Delete"), style: "destructive", onPress: () => void deleteItem(item) }
+      ]
+    );
+  }
+
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <Text style={styles.title}>Список</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>{translate("Список", "List")}</Text>
+          <Pressable
+            accessibilityLabel={translate("Добавить платёж", "Add payment")}
+            onPress={() => router.push("/add-payment")}
+            style={({ pressed }) => [styles.addIconButton, pressed && styles.buttonPressed]}
+          >
+            <Ionicons color={theme.colors.background} name="add" size={25} />
+          </Pressable>
+        </View>
         <EmptyStateText>
-          {loading ? "Загружаю ближайшие платежи..." : "Ближайшие платежи появятся здесь"}
+          {loading ? translate("Загружаю платежи...", "Loading payments...") : translate("Все платежи по порядку дат", "All payments ordered by date")}
         </EmptyStateText>
       </View>
 
-      <Pressable onPress={() => router.push("/add-payment")} style={styles.addButton}>
-        <Ionicons color={theme.colors.background} name="add" size={20} />
-        <Text style={styles.addButtonText}>Добавить платёж</Text>
-      </Pressable>
-
       <AppTextInput
         autoCapitalize="none"
-        label="Поиск"
+        label={translate("Поиск", "Search")}
         onChangeText={setSearch}
-        placeholder="Название платежа"
+        placeholder={translate("Название платежа", "Payment name")}
         value={search}
       />
 
@@ -217,17 +247,84 @@ export default function ListScreen() {
             style={[styles.filterChip, filter === option.value && styles.filterChipActive]}
           >
             <Text style={[styles.filterText, filter === option.value && styles.filterTextActive]}>
-              {option.label}
+              {translate(option.ru, option.en)}
             </Text>
           </Pressable>
         ))}
       </View>
 
+      <Pressable
+        onPress={() => setShowAdvancedFilters((current) => !current)}
+        style={({ pressed }) => [styles.advancedFilterButton, pressed && styles.buttonPressed]}
+      >
+        <Ionicons color={theme.colors.primary} name="options-outline" size={18} />
+        <Text style={styles.advancedFilterButtonText}>
+          {translate("Фильтры", "Filters")}{advancedFilterCount > 0 ? ` · ${advancedFilterCount}` : ""}
+        </Text>
+        <Ionicons
+          color={theme.colors.textMuted}
+          name={showAdvancedFilters ? "chevron-up" : "chevron-down"}
+          size={17}
+        />
+      </Pressable>
+
+      {showAdvancedFilters ? (
+        <Card style={styles.advancedFiltersCard}>
+          <Text style={styles.filterLabel}>{translate("Дополнительно", "More filters")}</Text>
+          <View style={styles.filterRow}>
+            <Pressable
+              onPress={() => setRepeatingOnly((current) => !current)}
+              style={[styles.filterChip, repeatingOnly && styles.filterChipActive]}
+            >
+              <Ionicons color={repeatingOnly ? theme.colors.primary : theme.colors.textMuted} name="repeat" size={15} />
+              <Text style={[styles.filterText, repeatingOnly && styles.filterTextActive]}>{translate("Повторяющиеся", "Repeating")}</Text>
+            </Pressable>
+          </View>
+
+          {categories.length > 0 ? (
+            <>
+              <Text style={styles.filterLabel}>{translate("Категория", "Category")}</Text>
+              <View style={styles.filterRow}>
+                <Pressable
+                  onPress={() => setCategoryFilter(null)}
+                  style={[styles.filterChip, categoryFilter === null && styles.filterChipActive]}
+                >
+                  <Text style={[styles.filterText, categoryFilter === null && styles.filterTextActive]}>{translate("Все", "All")}</Text>
+                </Pressable>
+                {categories.map((category) => (
+                  <Pressable
+                    key={category.id}
+                    onPress={() => setCategoryFilter(category.id)}
+                    style={[styles.filterChip, categoryFilter === category.id && styles.filterChipActive]}
+                  >
+                    <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+                    <Text style={[styles.filterText, categoryFilter === category.id && styles.filterTextActive]}>
+                      {category.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {advancedFilterCount > 0 ? (
+            <Pressable
+              onPress={() => {
+                setCategoryFilter(null);
+                setRepeatingOnly(false);
+              }}
+            >
+              <Text style={styles.resetFiltersText}>{translate("Сбросить дополнительные фильтры", "Reset extra filters")}</Text>
+            </Pressable>
+          ) : null}
+        </Card>
+      ) : null}
+
       {error ? (
         <Card style={styles.errorCard}>
-          <Text style={styles.errorTitle}>Не удалось загрузить платежи</Text>
+          <Text style={styles.errorTitle}>{translate("Не удалось загрузить платежи", "Could not load payments")}</Text>
           <Text style={styles.errorText}>{error}</Text>
-          <AppButton loading={loading} onPress={loadItems} title="Повторить" variant="secondary" />
+          <AppButton loading={loading} onPress={loadItems} title={translate("Повторить", "Retry")} variant="secondary" />
         </Card>
       ) : null}
 
@@ -237,11 +334,11 @@ export default function ListScreen() {
             <Ionicons color={theme.colors.primary} name="receipt-outline" size={24} />
           </View>
           <View style={styles.emptyTextWrap}>
-            <Text style={styles.emptyTitle}>Пока без записей</Text>
+            <Text style={styles.emptyTitle}>{translate("Пока без записей", "No entries yet")}</Text>
             <Text style={styles.emptyDescription}>
-              {items.length === 0
-                ? "Когда вы добавите платежи, они появятся здесь по порядку дат."
-                : "По текущему поиску и фильтрам ничего не найдено."}
+              {availableItems.length === 0
+                ? translate("Когда вы добавите платежи, они появятся здесь по порядку дат.", "Your payments will appear here in date order.")
+                : translate("По текущему поиску и фильтрам ничего не найдено.", "Nothing matches the current search and filters.")}
             </Text>
           </View>
         </Card>
@@ -258,7 +355,14 @@ export default function ListScreen() {
                   const category = item.categoryId ? categoriesById.get(item.categoryId) : null;
 
                   return (
-                    <Card key={item.id} style={[styles.paymentCard, overdue && styles.overdueCard]}>
+                    <Card
+                      key={item.id}
+                      style={[
+                        styles.paymentCard,
+                        category ? { backgroundColor: getCategoryCardBackground(category.color) } : null,
+                        overdue && styles.overdueCard
+                      ]}
+                    >
                       <View style={styles.paymentTopRow}>
                         <View style={styles.paymentIconWrap}>
                           <Ionicons
@@ -269,7 +373,7 @@ export default function ListScreen() {
                                   ? theme.colors.danger
                                   : theme.colors.primary
                             }
-                            name={item.status === "paid" ? "checkmark-circle-outline" : "wallet-outline"}
+                            name={item.status === "paid" ? "checkmark-circle-outline" : item.type === "income" ? "cash-outline" : (category?.icon as keyof typeof Ionicons.glyphMap) ?? "wallet-outline"}
                             size={22}
                           />
                         </View>
@@ -280,12 +384,16 @@ export default function ListScreen() {
                           <Text style={styles.paymentMeta}>{formatPaymentDate(item.date)}</Text>
                           {category ? (
                             <View style={styles.categoryBadge}>
-                              <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+                              <Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={14} />
                               <Text style={styles.categoryText}>{category.name}</Text>
                             </View>
                           ) : null}
-                          {overdue ? <Text style={styles.overdueText}>Просрочен</Text> : null}
-                          {isRepeating ? <Text style={styles.repeatText}>Повторяется</Text> : null}
+                          {item.type === "income" ? <Text style={styles.incomeText}>{translate("Доход", "Income")}</Text> : null}
+                          {item.type === "income" && item.status === "paid" ? (
+                            <Text style={styles.receivedText}>{translate("Получено", "Received")}</Text>
+                          ) : null}
+                          {overdue ? <Text style={styles.overdueText}>{translate("Просрочен", "Overdue")}</Text> : null}
+                          {isRepeating ? <Text style={styles.repeatText}>{translate("Повторяется", "Repeating")}</Text> : null}
                         </View>
                         <Text style={[styles.paymentAmount, item.status === "paid" && styles.paidText]}>
                           {formatPaymentAmount(item)}
@@ -302,7 +410,7 @@ export default function ListScreen() {
                             }
                             style={styles.smallButton}
                           >
-                            <Text style={styles.smallButtonText}>Редактировать исходный платёж</Text>
+                            <Text style={styles.smallButtonText}>{translate("Редактировать исходный платёж", "Edit original payment")}</Text>
                           </Pressable>
                         ) : (
                           <>
@@ -310,18 +418,19 @@ export default function ListScreen() {
                               onPress={() => router.push({ pathname: "/edit-payment/[id]", params: { id: item.id } })}
                               style={styles.smallButton}
                             >
-                              <Text style={styles.smallButtonText}>Редактировать</Text>
+                              <Text style={styles.smallButtonText}>{translate("Редактировать", "Edit")}</Text>
                             </Pressable>
                             <Pressable
-                              disabled={item.status === "paid" || actionId === item.id}
-                              onPress={() => handleMarkPaid(item)}
-                              style={[
-                                styles.smallButton,
-                                item.status === "paid" && styles.smallButtonDisabled
-                              ]}
+                              disabled={actionId === item.id}
+                              onPress={() => handleTogglePaid(item)}
+                              style={styles.smallButton}
                             >
                               <Text style={styles.smallButtonText}>
-                                {item.status === "paid" ? "Оплачено" : "Оплатить"}
+                                {item.status === "paid"
+                                  ? translate("Вернуть в запланированные", "Restore to planned")
+                                  : item.type === "income"
+                                    ? translate("Получено", "Mark received")
+                                    : translate("Оплатить", "Mark paid")}
                               </Text>
                             </Pressable>
                             <Pressable
@@ -329,7 +438,7 @@ export default function ListScreen() {
                               onPress={() => handleDelete(item)}
                               style={[styles.smallButton, styles.deleteButton]}
                             >
-                              <Text style={[styles.smallButtonText, styles.deleteButtonText]}>Удалить</Text>
+                              <Text style={[styles.smallButtonText, styles.deleteButtonText]}>{translate("Удалить", "Delete")}</Text>
                             </Pressable>
                           </>
                         )}
@@ -351,25 +460,26 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     marginBottom: theme.spacing.sm
   },
+  headerRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
   title: {
     color: theme.colors.text,
     fontSize: 26,
     fontWeight: "700"
   },
-  addButton: {
+  addIconButton: {
     alignItems: "center",
     backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.md,
-    flexDirection: "row",
-    gap: theme.spacing.sm,
+    borderRadius: 22,
+    height: 44,
     justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: theme.spacing.md
+    width: 44
   },
-  addButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: "700"
+  buttonPressed: {
+    opacity: 0.78
   },
   filterRow: {
     flexDirection: "row",
@@ -377,10 +487,13 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm
   },
   filterChip: {
+    alignItems: "center",
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
     borderWidth: 1,
+    flexDirection: "row",
+    gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm
   },
@@ -395,6 +508,36 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: theme.colors.primary
+  },
+  advancedFilterButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: theme.spacing.xs,
+    minHeight: 38,
+    paddingHorizontal: theme.spacing.md
+  },
+  advancedFilterButtonText: {
+    color: theme.colors.primary,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  advancedFiltersCard: {
+    gap: theme.spacing.sm
+  },
+  filterLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  resetFiltersText: {
+    color: theme.colors.primary,
+    fontSize: 13,
+    fontWeight: "700"
   },
   errorCard: {
     gap: theme.spacing.sm
@@ -487,6 +630,16 @@ const styles = StyleSheet.create({
   },
   repeatText: {
     color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  incomeText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  receivedText: {
+    color: theme.colors.textMuted,
     fontSize: 12,
     fontWeight: "700"
   },
