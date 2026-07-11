@@ -768,14 +768,14 @@ function createStyles(theme: AppTheme) {
     borderRadius: theme.radius.sm,
     borderWidth: 1,
     gap: 7,
-    minHeight: 96,
+    minHeight: 92,
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 10
+    paddingVertical: 9
   },
   weekCardEmpty: {
     gap: 0,
-    minHeight: 48,
-    paddingVertical: 7
+    minHeight: 40,
+    paddingVertical: 4
   },
   weekCardActive: {
     backgroundColor: theme.colors.primarySoft,
@@ -792,12 +792,12 @@ function createStyles(theme: AppTheme) {
   },
   weekCardDay: {
     color: theme.colors.textMuted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700"
   },
   weekCardDate: {
     color: theme.colors.text,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     textAlign: "center"
   },
@@ -806,7 +806,7 @@ function createStyles(theme: AppTheme) {
   },
   weekCardSummary: {
     color: theme.colors.textMuted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600"
   },
   weekMiniList: {
