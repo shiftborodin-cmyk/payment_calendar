@@ -18,7 +18,9 @@ const accentOptions: Array<{ id: AppAccentColor; labelRu: string; labelEn: strin
   { id: "green", labelRu: "Зелёный", labelEn: "Green", color: "#36D987" },
   { id: "blue", labelRu: "Синий", labelEn: "Blue", color: "#7BA7FF" },
   { id: "mint", labelRu: "Мята", labelEn: "Mint", color: "#7CE7C9" },
-  { id: "amber", labelRu: "Янтарь", labelEn: "Amber", color: "#F2C96B" }
+  { id: "amber", labelRu: "Янтарь", labelEn: "Amber", color: "#F2C96B" },
+  { id: "violet", labelRu: "Фиолетовый", labelEn: "Violet", color: "#B59BFF" },
+  { id: "coral", labelRu: "Коралловый", labelEn: "Coral", color: "#FF8FA3" }
 ];
 
 export default function SettingsScreen() {
@@ -98,28 +100,6 @@ export default function SettingsScreen() {
     }
   }
 
-  async function handleIncomeToggle(nextValue: boolean) {
-    setIncludeIncome(nextValue);
-    setLoading(true);
-
-    try {
-      const parsedOpeningBalance = Number(openingBalance.trim().replace(",", "."));
-      await saveSettings({
-        ...settings,
-        includeIncome: nextValue,
-        openingBalance: Number.isFinite(parsedOpeningBalance) ? parsedOpeningBalance : 0
-      });
-    } catch (error) {
-      setIncludeIncome(settings.includeIncome);
-      Alert.alert(
-        translate("Ошибка", "Error"),
-        error instanceof Error ? error.message : translate("Не удалось изменить настройку доходов.", "Could not update the income setting.")
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleSignOut() {
     setLoading(true);
     try {
@@ -130,12 +110,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScreenContainer>
-      <View style={styles.header}>
-        <Text style={styles.title}>{translate("Настройки", "Settings")}</Text>
-        <Text style={styles.subtitle}>{translate("Параметры приложения и аккаунта", "App and account preferences")}</Text>
-      </View>
-
+    <ScreenContainer contentStyle={styles.screenContent}>
       {savedMessage ? (
         <View style={styles.savedToast}>
           <Ionicons color={theme.colors.text} name="checkmark-circle-outline" size={18} />
@@ -187,15 +162,14 @@ export default function SettingsScreen() {
         ) : null}
       </Card>
 
-      <Card style={styles.preferencesCard}>
+      <Card style={[styles.preferencesCard, styles.incomePreferencesCard]}>
         <View style={styles.incomeSettingRow}>
           <View style={styles.incomeSettingText}>
             <Text style={styles.sectionTitle}>{translate("Учитывать доходы", "Track income")}</Text>
-            <Text style={styles.hint}>{translate("Добавляет доходы и подготовит расчёт доступных денег.", "Adds income and prepares available-money forecasting.")}</Text>
           </View>
           <Switch
             disabled={loading}
-            onValueChange={(nextValue) => void handleIncomeToggle(nextValue)}
+            onValueChange={setIncludeIncome}
             thumbColor={includeIncome ? theme.colors.primary : theme.colors.textMuted}
             trackColor={{ false: theme.colors.surface, true: theme.colors.primarySoft }}
             value={includeIncome}
@@ -210,12 +184,9 @@ export default function SettingsScreen() {
               placeholder="0"
               value={openingBalance}
             />
-            <Text style={styles.hint}>{translate("Переключатель применяется сразу. Остаток сохранится кнопкой ниже.", "The switch applies immediately. Save the opening balance with the button below.")}</Text>
           </>
         ) : null}
-      </Card>
-
-      <Card style={styles.preferencesCard}>
+        <View style={styles.settingsDivider} />
         <Text style={styles.sectionTitle}>{translate("Язык", "Language")}</Text>
         <View style={styles.choiceRow}>
           {[
@@ -231,10 +202,7 @@ export default function SettingsScreen() {
             </Pressable>
           ))}
         </View>
-        <AppButton loading={loading} onPress={handleSaveSettings} title={translate("Сохранить настройки", "Save settings")} />
-      </Card>
-
-      <Card style={styles.preferencesCard}>
+        <View style={styles.settingsDivider} />
         <Text style={styles.sectionTitle}>{translate("Тема", "Theme")}</Text>
         <View style={styles.choiceRow}>
           {[
@@ -250,8 +218,6 @@ export default function SettingsScreen() {
             </Pressable>
           ))}
         </View>
-        <Text style={styles.hint}>{translate("Светлая тема мягкая, без чисто белого фона.", "The light theme is soft, without a pure white background.")}</Text>
-
         <Text style={styles.label}>{translate("Акцентный цвет", "Accent color")}</Text>
         <View style={styles.accentRow}>
           {accentOptions.map((option) => (
@@ -271,7 +237,7 @@ export default function SettingsScreen() {
             </Pressable>
           ))}
         </View>
-        <AppButton loading={loading} onPress={handleSaveSettings} title={translate("Сохранить тему", "Save theme")} />
+        <AppButton loading={loading} onPress={handleSaveSettings} title={translate("Сохранить настройки", "Save settings")} />
       </Card>
 
       <View style={styles.menu}>
@@ -321,11 +287,24 @@ function createStyles(theme: AppTheme) {
     fontWeight: "600"
   },
   menu: {
-    gap: theme.spacing.sm
+    gap: theme.spacing.md
   },
   preferencesCard: {
-    gap: theme.spacing.sm,
-    padding: 13
+    gap: 12,
+    padding: 10
+  },
+  incomePreferencesCard: {
+    gap: 12,
+    paddingBottom: 10,
+    paddingTop: 10
+  },
+  screenContent: {
+    paddingBottom: 132
+  },
+  settingsDivider: {
+    backgroundColor: theme.colors.border,
+    height: 1,
+    marginVertical: 0
   },
   sectionTitle: {
     color: theme.colors.text,
@@ -391,12 +370,14 @@ function createStyles(theme: AppTheme) {
   incomeSettingRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: theme.spacing.md,
-    justifyContent: "space-between"
+    gap: theme.spacing.sm,
+    justifyContent: "space-between",
+    marginBottom: -4,
+    marginTop: -4
   },
   incomeSettingText: {
     flex: 1,
-    gap: theme.spacing.xs
+    gap: 0
   },
   hint: {
     color: theme.colors.textMuted,
@@ -431,7 +412,7 @@ function createStyles(theme: AppTheme) {
   },
   accentRow: {
     flexDirection: "row",
-    gap: theme.spacing.sm
+    justifyContent: "space-between"
   },
   accentChoice: {
     alignItems: "center",

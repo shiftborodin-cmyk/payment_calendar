@@ -12,7 +12,7 @@ export function AppTextInput({ label, style, ...props }: AppTextInputProps) {
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={theme.colors.textMuted}
         style={[styles.input, style]}

@@ -54,7 +54,9 @@ function normalizeSettings(value: unknown): AppSettings {
       candidate.accentColor === "green" ||
       candidate.accentColor === "blue" ||
       candidate.accentColor === "mint" ||
-      candidate.accentColor === "amber"
+      candidate.accentColor === "amber" ||
+      candidate.accentColor === "violet" ||
+      candidate.accentColor === "coral"
         ? candidate.accentColor
         : "white"
   };

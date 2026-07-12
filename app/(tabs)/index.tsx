@@ -8,7 +8,7 @@ import { getCategoryCardBackground } from "@/features/categories/categoryColors"
 import { getLocalCategories, type LocalCategory } from "@/features/categories/localCategoriesStorage";
 import { useAppSettings } from "@/features/settings/AppSettingsContext";
 import { getCurrentLocale, translate } from "@/features/settings/i18n";
-import { getMonthEndDateString, getMonthStartDateString, getTodayDateString } from "@/features/payments/paymentDates";
+import { getDayOfMonth, getMonthEndDateString, getMonthStartDateString, getTodayDateString } from "@/features/payments/paymentDates";
 import { getMonthlyBalanceForecast } from "@/features/payments/paymentForecast";
 import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
 import { expandPaymentOccurrences, sortPaymentsByDate } from "@/features/payments/paymentOccurrences";
@@ -144,7 +144,6 @@ export default function HomeScreen() {
     <ScreenContainer contentStyle={styles.screenContent}>
       <View style={styles.header}>
         <Text style={styles.greeting}>{getGreeting()}, {displayName}</Text>
-        <Text style={styles.subtitle}>{translate("Ваш платёжный календарь на сегодня", "Your payment calendar for today")}</Text>
       </View>
 
       <Card
@@ -188,19 +187,14 @@ export default function HomeScreen() {
             <AppButton loading={loading} onPress={loadNextPayment} title={translate("Повторить", "Retry")} variant="secondary" />
           </View>
         ) : (
-          <View style={styles.emptyBlock}>
-            <Ionicons color={theme.colors.textMuted} name="calendar-outline" size={32} />
-            <Text style={styles.emptyTitle}>
+          <View style={styles.emptyCompactBlock}>
+            <Ionicons color={theme.colors.textMuted} name="calendar-outline" size={22} />
+            <Text numberOfLines={1} style={styles.emptyCompactText}>
               {loading
                 ? translate("Загружаю платежи...", "Loading payments...")
                 : visibleItems.length > 0
                   ? translate("Все платежи оплачены", "All payments are paid")
-                  : translate("Платежей пока нет", "No payments yet")}
-            </Text>
-            <Text style={styles.emptyDescription}>
-              {visibleItems.length > 0
-                ? translate("На ближайшее время активных платежей нет.", "There are no active payments coming up.")
-                : translate("Добавьте первый платёж, чтобы видеть его здесь и в календаре.", "Add your first payment to see it here and in the calendar.")}
+                  : translate("Активных платежей нет", "No active payments")}
             </Text>
           </View>
         )}
@@ -208,10 +202,10 @@ export default function HomeScreen() {
 
       <View style={styles.addActions}>
         {settings.includeIncome ? <View style={styles.addAction}>
-          <AppButton icon="add" onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Доход", "Income")} variant="secondary" />
+          <AppButton onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Доход", "Income")} variant="secondary" />
         </View> : null}
         <View style={styles.addAction}>
-          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Расход", "Expense")} />
+          <AppButton onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Расход", "Expense")} />
         </View>
       </View>
 
@@ -220,7 +214,6 @@ export default function HomeScreen() {
           <View style={styles.forecastHeader}>
             <View>
               <Text style={styles.cardTitle}>{translate("Прогноз денег", "Money forecast")}</Text>
-              <Text style={styles.forecastSubtitle}>{translate("Остаток по дням текущего месяца", "Daily balance for this month")}</Text>
             </View>
             <Ionicons color={theme.colors.primary} name="analytics-outline" size={24} />
           </View>
@@ -246,7 +239,7 @@ export default function HomeScreen() {
             <View style={styles.zeroLine} />
             <View style={styles.chartColumns}>
               {forecast.map((day) => {
-                const barHeight = Math.max(2, Math.round((Math.abs(day.balance) / maxForecastValue) * 34));
+                const barHeight = Math.max(2, Math.round((Math.abs(day.balance) / maxForecastValue) * 28));
 
                 return (
                   <View key={day.date} style={styles.chartColumn}>
@@ -257,6 +250,17 @@ export default function HomeScreen() {
                       {day.balance < 0 ? <View style={[styles.negativeBar, { height: barHeight }]} /> : null}
                     </View>
                   </View>
+                );
+              })}
+            </View>
+            <View style={styles.chartLabels}>
+              {forecast.map((day, index) => {
+                const shouldShow = index === 0 || index === forecast.length - 1 || ((index + 1) % 5 === 0 && index + 1 < forecast.length - 1);
+
+                return (
+                  <Text key={`${day.date}-label`} style={styles.chartLabel}>
+                    {shouldShow ? getDayOfMonth(day.date) : ""}
+                  </Text>
                 );
               })}
             </View>
@@ -302,7 +306,7 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
   screenContent: {
     gap: 8,
-    paddingBottom: theme.spacing.sm
+    paddingBottom: 132
   },
   header: {
     gap: theme.spacing.xs,
@@ -401,6 +405,24 @@ function createStyles(theme: AppTheme) {
     gap: theme.spacing.sm,
     padding: theme.spacing.md
   },
+  emptyCompactBlock: {
+    alignItems: "center",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    minHeight: 54,
+    paddingHorizontal: theme.spacing.md
+  },
+  emptyCompactText: {
+    color: theme.colors.textMuted,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600"
+  },
   emptyTitle: {
     color: theme.colors.text,
     fontSize: 16,
@@ -486,7 +508,7 @@ function createStyles(theme: AppTheme) {
     flex: 1
   },
   forecastCard: {
-    gap: 10,
+    gap: 6,
     padding: 12
   },
   forecastHeader: {
@@ -536,7 +558,7 @@ function createStyles(theme: AppTheme) {
     color: "#D98A8A"
   },
   chart: {
-    height: 82,
+    height: 86,
     justifyContent: "center",
     position: "relative"
   },
@@ -546,23 +568,33 @@ function createStyles(theme: AppTheme) {
     left: 0,
     position: "absolute",
     right: 0,
-    top: 41
+    top: 34
   },
   chartColumns: {
     flexDirection: "row",
-    height: 82
+    height: 68
+  },
+  chartLabels: {
+    flexDirection: "row",
+    height: 16
+  },
+  chartLabel: {
+    color: theme.colors.textMuted,
+    flex: 1,
+    fontSize: 9,
+    textAlign: "center"
   },
   chartColumn: {
     flex: 1
   },
   chartHalfTop: {
     alignItems: "center",
-    height: 41,
+    height: 34,
     justifyContent: "flex-end"
   },
   chartHalfBottom: {
     alignItems: "center",
-    height: 41,
+    height: 34,
     justifyContent: "flex-start"
   },
   positiveBar: {

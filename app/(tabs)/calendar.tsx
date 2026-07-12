@@ -116,6 +116,7 @@ export default function CalendarScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [carouselWidth, setCarouselWidth] = useState(0);
+  const [carouselHeight, setCarouselHeight] = useState(0);
   const [screenScrollEnabled, setScreenScrollEnabled] = useState(true);
   const viewRef = useRef(view);
   const desiredDayRef = useRef(desiredDayOfMonth);
@@ -125,6 +126,10 @@ export default function CalendarScreen() {
 
   viewRef.current = view;
   desiredDayRef.current = desiredDayOfMonth;
+
+  useEffect(() => {
+    setCarouselHeight(0);
+  }, [selectedDate, view, weekPeriodStart]);
 
   const visibleItems = useMemo(
     () => items.filter((item) => settings.includeIncome || item.type !== "income"),
@@ -170,7 +175,6 @@ export default function CalendarScreen() {
       moveDateByMonthsKeepingDesiredDay(selectedDate, 1, desiredDayOfMonth)
     ];
   }, [desiredDayOfMonth, selectedDate, view, weekPeriodStart]);
-
   const navigate = useCallback((direction: -1 | 0 | 1) => {
     if (direction === 0) {
       const today = getTodayDateString();
@@ -257,14 +261,6 @@ export default function CalendarScreen() {
     }
   }
 
-  function getModeLabel() {
-    if (loading) {
-      return translate("Загружаю платежи...", "Loading payments...");
-    }
-
-    return view === "month" ? translate("Обзор месяца", "Month overview") : translate("7 дней от выбранного дня", "7 days from selected day");
-  }
-
   function getPeriodPaymentDates(periodDate: string) {
     const periodRange =
       view === "week"
@@ -308,10 +304,10 @@ export default function CalendarScreen() {
 
     handlingScrollEndRef.current = true;
     navigate(direction);
-    requestAnimationFrame(() => {
+    setTimeout(() => {
       scrollCarouselToCenter(false);
       handlingScrollEndRef.current = false;
-    });
+    }, 280);
   }
 
   function renderMonthView(periodDate: string, markedDates: Set<string>) {
@@ -387,14 +383,9 @@ export default function CalendarScreen() {
               ]}
             >
               <View style={styles.weekCardHeader}>
-                <View>
-                  <Text style={[styles.weekCardDay, isSelected && styles.weekCardTextActive]}>
-                    {getWeekDayLabel(dateString, weekDays)}
-                  </Text>
-                  <Text style={[styles.weekCardDate, isSelected && styles.weekCardTextActive]}>
-                    {getShortDateLabel(dateString)}
-                  </Text>
-                </View>
+                <Text style={[styles.weekCardDateInline, isSelected && styles.weekCardTextActive]}>
+                  {getWeekDayLabel(dateString, weekDays)} · {getShortDateLabel(dateString)}
+                </Text>
                 <Text style={styles.weekCardSummary}>
                   {dayPayments.length === 0
                     ? translate("Нет операций", "No operations")
@@ -432,15 +423,26 @@ export default function CalendarScreen() {
 
   function renderPeriod(periodDate: string) {
     const markedDates = getPeriodPaymentDates(periodDate);
+    const isCurrentPeriod = view === "month" ? periodDate === selectedDate : periodDate === weekPeriodStart;
+    const columnAnchorPadding = carouselWidth > 0 ? Math.max(0, carouselWidth / 14 - 8) : 0;
+    const iconAnchorPadding = Math.max(0, columnAnchorPadding - 10);
 
     return (
-      <View key={periodDate} style={[styles.carouselPage, carouselWidth > 0 && { width: carouselWidth }]}>
+      <View
+        key={periodDate}
+        onLayout={isCurrentPeriod ? (event) => setCarouselHeight(event.nativeEvent.layout.height) : undefined}
+        style={[styles.carouselPage, carouselWidth > 0 && { width: carouselWidth }]}
+      >
         <View style={styles.calendarTopRow}>
-          <View>
-            <Text style={styles.monthLabel}>{getMonthLabel(periodDate)}</Text>
-            <Text style={styles.calendarModeLabel}>{getModeLabel()}</Text>
-          </View>
-          <View style={styles.calendarIconWrap}>
+          <Text numberOfLines={1} style={[styles.monthLabel, { left: columnAnchorPadding }]}>
+            {getMonthLabel(periodDate)}
+          </Text>
+          <View
+            style={[
+              styles.calendarIconWrap,
+              carouselWidth > 0 ? { left: (carouselWidth / 7) * 6 + iconAnchorPadding } : { right: 10 }
+            ]}
+          >
             <Ionicons color={theme.colors.primary} name="calendar-clear-outline" size={22} />
           </View>
         </View>
@@ -459,11 +461,6 @@ export default function CalendarScreen() {
       nestedScrollEnabled
       scrollEnabled={screenScrollEnabled}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>{translate("Календарь", "Calendar")}</Text>
-        <Text style={styles.subtitle}>{translate("Платежи по датам", "Payments by date")}</Text>
-      </View>
-
       <SegmentControl
         onChange={(nextView) => {
           if (nextView === "week") {
@@ -492,14 +489,15 @@ export default function CalendarScreen() {
 
       <Card style={styles.calendarCard}>
         <View
-          style={styles.carouselViewport}
+          style={[styles.carouselViewport, carouselHeight > 0 && { height: carouselHeight }]}
           onLayout={(event) => handleCarouselLayout(event.nativeEvent.layout.width)}
           onTouchCancel={() => setScreenScrollEnabled(true)}
           onTouchEnd={() => setScreenScrollEnabled(true)}
           onTouchStart={() => setScreenScrollEnabled(false)}
         >
           <ScrollView
-            decelerationRate="fast"
+            contentContainerStyle={styles.carouselContent}
+            decelerationRate="normal"
             directionalLockEnabled={false}
             disableIntervalMomentum
             horizontal
@@ -509,6 +507,8 @@ export default function CalendarScreen() {
             onScrollEndDrag={() => setScreenScrollEnabled(true)}
             pagingEnabled
             ref={carouselScrollRef}
+            snapToAlignment="start"
+            snapToInterval={carouselWidth > 0 ? carouselWidth : undefined}
             scrollEventThrottle={16}
             showsHorizontalScrollIndicator={false}
           >
@@ -533,7 +533,6 @@ export default function CalendarScreen() {
         {selectedPayments.length === 0 ? (
           <Card style={styles.emptyDayCard}>
             <Text style={styles.emptyDayTitle}>{translate("На этот день платежей нет", "No payments for this date")}</Text>
-            <Text style={styles.emptyDayText}>{translate("Выберите другую дату или добавьте новый платёж.", "Choose another date or add a new payment.")}</Text>
           </Card>
         ) : (
           selectedPayments.map((payment) => {
@@ -672,14 +671,16 @@ function createStyles(theme: AppTheme) {
   carouselViewport: {
     overflow: "hidden"
   },
+  carouselContent: {
+    alignItems: "flex-start"
+  },
   carouselPage: {
+    alignSelf: "flex-start",
     gap: 5
   },
   calendarTopRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: theme.spacing.md
+    height: 34,
+    position: "relative"
   },
   calendarIconWrap: {
     alignItems: "center",
@@ -687,12 +688,16 @@ function createStyles(theme: AppTheme) {
     borderRadius: theme.radius.md,
     height: 34,
     justifyContent: "center",
+    position: "absolute",
+    top: 0,
     width: 34
   },
   monthLabel: {
     color: theme.colors.text,
     fontSize: 17,
     fontWeight: "600",
+    position: "absolute",
+    top: 5,
     textTransform: "capitalize"
   },
   calendarModeLabel: {
@@ -768,14 +773,16 @@ function createStyles(theme: AppTheme) {
     borderRadius: theme.radius.sm,
     borderWidth: 1,
     gap: 7,
-    minHeight: 92,
+    minHeight: 70,
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 9
+    paddingVertical: 6
   },
   weekCardEmpty: {
     gap: 0,
-    minHeight: 40,
-    paddingVertical: 4
+    height: 38,
+    justifyContent: "center",
+    minHeight: 0,
+    paddingVertical: 0
   },
   weekCardActive: {
     backgroundColor: theme.colors.primarySoft,
@@ -801,6 +808,11 @@ function createStyles(theme: AppTheme) {
     fontWeight: "700",
     textAlign: "center"
   },
+  weekCardDateInline: {
+    color: theme.colors.text,
+    fontSize: 11,
+    fontWeight: "700"
+  },
   weekCardTextActive: {
     color: theme.colors.primary
   },
@@ -820,8 +832,8 @@ function createStyles(theme: AppTheme) {
     borderWidth: 1,
     flexDirection: "row",
     gap: theme.spacing.xs,
-    minHeight: 32,
-    paddingHorizontal: theme.spacing.sm
+    minHeight: 28,
+    paddingHorizontal: 6
   },
   weekMiniTitle: {
     color: theme.colors.text,

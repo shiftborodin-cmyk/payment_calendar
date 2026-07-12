@@ -19,7 +19,6 @@ import { deletePaymentItem, fetchPaymentItems, setPaymentItemStatus } from "@/fe
 import { AppButton } from "@/shared/ui/AppButton";
 import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { Card } from "@/shared/ui/Card";
-import { EmptyStateText } from "@/shared/ui/PaymentPlaceholderCard";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { useTheme, type AppTheme } from "@/shared/theme/theme";
 import type { PaymentItem } from "@/types/payment";
@@ -28,7 +27,6 @@ type PaymentFilter = "all" | "unpaid" | "overdue" | "paid";
 
 const filterOptions: Array<{ ru: string; en: string; value: PaymentFilter }> = [
   { ru: "Все", en: "All", value: "all" },
-  { ru: "Активные", en: "Active", value: "unpaid" },
   { ru: "Просроченные", en: "Overdue", value: "overdue" },
   { ru: "Оплаченные", en: "Paid", value: "paid" }
 ];
@@ -216,11 +214,18 @@ export default function ListScreen() {
   }
 
   return (
-    <ScreenContainer>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>{translate("Список", "List")}</Text>
-          <View style={styles.addButtons}>
+    <ScreenContainer contentStyle={styles.screenContent}>
+      <View style={styles.topControls}>
+        <View style={styles.searchWrap}>
+          <AppTextInput
+            autoCapitalize="none"
+            label=""
+            onChangeText={setSearch}
+            placeholder={translate("Название платежа", "Payment name")}
+            value={search}
+          />
+        </View>
+        <View style={styles.addButtons}>
             <Pressable
               accessibilityLabel={translate("Добавить расход", "Add expense")}
               onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })}
@@ -237,22 +242,10 @@ export default function ListScreen() {
                 <Ionicons color={theme.colors.text} name="add" size={23} />
               </Pressable>
             ) : null}
-          </View>
         </View>
-        <EmptyStateText>
-          {loading ? translate("Загружаю платежи...", "Loading payments...") : translate("Все платежи по порядку дат", "All payments ordered by date")}
-        </EmptyStateText>
       </View>
 
-      <AppTextInput
-        autoCapitalize="none"
-        label={translate("Поиск", "Search")}
-        onChangeText={setSearch}
-        placeholder={translate("Название платежа", "Payment name")}
-        value={search}
-      />
-
-      <View style={styles.filterRow}>
+      <View style={styles.filterScrollContent}>
         {filterOptions.map((option) => (
           <Pressable
             key={option.value}
@@ -264,22 +257,15 @@ export default function ListScreen() {
             </Text>
           </Pressable>
         ))}
+        <Pressable
+          accessibilityLabel={translate("Дополнительные фильтры", "More filters")}
+          onPress={() => setShowAdvancedFilters((current) => !current)}
+          style={({ pressed }) => [styles.advancedFilterButton, pressed && styles.buttonPressed]}
+        >
+          <Ionicons color={theme.colors.primary} name="options-outline" size={18} />
+          {advancedFilterCount > 0 ? <View style={styles.filterBadge} /> : null}
+        </Pressable>
       </View>
-
-      <Pressable
-        onPress={() => setShowAdvancedFilters((current) => !current)}
-        style={({ pressed }) => [styles.advancedFilterButton, pressed && styles.buttonPressed]}
-      >
-        <Ionicons color={theme.colors.primary} name="options-outline" size={18} />
-        <Text style={styles.advancedFilterButtonText}>
-          {translate("Фильтры", "Filters")}{advancedFilterCount > 0 ? ` · ${advancedFilterCount}` : ""}
-        </Text>
-        <Ionicons
-          color={theme.colors.textMuted}
-          name={showAdvancedFilters ? "chevron-up" : "chevron-down"}
-          size={17}
-        />
-      </Pressable>
 
       {showAdvancedFilters ? (
         <Card style={styles.advancedFiltersCard}>
@@ -396,16 +382,17 @@ export default function ListScreen() {
                           </Text>
                           <View style={styles.paymentMetaRow}>
                             <Text style={styles.paymentMeta}>{formatPaymentDate(item.date)}</Text>
-                            {category ? <View style={styles.categoryBadge}><Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={13} /><Text style={styles.categoryText}>{category.name}</Text></View> : null}
-                            {item.type === "income" ? <Text style={styles.incomeText}>{translate("Доход", "Income")}</Text> : null}
-                            {item.type === "income" && item.status === "paid" ? <Text style={styles.receivedText}>{translate("Получено", "Received")}</Text> : null}
                             {overdue ? <Text style={styles.overdueText}>{translate("Просрочен", "Overdue")}</Text> : null}
                             {isRepeating ? <Text style={styles.repeatText}>{translate("Повторяется", "Repeating")}</Text> : null}
                           </View>
                         </View>
-                        <Text style={[styles.paymentAmount, item.status === "paid" && styles.paidText]}>
-                          {formatPaymentAmount(item)}
-                        </Text>
+                        <View style={styles.paymentAmountColumn}>
+                          <Text style={[styles.paymentAmount, item.status === "paid" && styles.paidText]}>
+                            {formatPaymentAmount(item)}
+                          </Text>
+                          {category ? <View style={styles.categoryBadge}><Ionicons color={category.color} name={category.icon as keyof typeof Ionicons.glyphMap} size={13} /><Text numberOfLines={1} style={styles.categoryText}>{category.name}</Text></View> : null}
+                          {item.type === "income" ? <Text style={styles.incomeText}>{item.status === "paid" ? translate("Получено", "Received") : translate("Доход", "Income")}</Text> : null}
+                        </View>
                       </View>
 
                       {item.comment ? <Text style={styles.comment}>{item.comment}</Text> : null}
@@ -433,9 +420,9 @@ export default function ListScreen() {
                               onPress={() => handleTogglePaid(item)}
                               style={styles.smallButton}
                             >
-                              <Text style={styles.smallButtonText}>
+                              <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={styles.smallButtonText}>
                                 {item.status === "paid"
-                                  ? translate("Вернуть в запланированные", "Restore to planned")
+                                  ? translate("Вернуть", "Restore")
                                   : item.type === "income"
                                     ? translate("Получено", "Mark received")
                                     : translate("Оплатить", "Mark paid")}
@@ -465,6 +452,17 @@ export default function ListScreen() {
 
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
+  screenContent: {
+    paddingBottom: 132
+  },
+  topControls: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.sm
+  },
+  searchWrap: {
+    flex: 1
+  },
   header: {
     gap: theme.spacing.sm,
     marginBottom: theme.spacing.sm
@@ -472,7 +470,7 @@ function createStyles(theme: AppTheme) {
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
-    justifyContent: "space-between"
+    justifyContent: "flex-end"
   },
   title: {
     color: theme.colors.text,
@@ -483,13 +481,13 @@ function createStyles(theme: AppTheme) {
     alignItems: "center",
     backgroundColor: theme.colors.primary,
     borderRadius: 22,
-    height: 44,
+    height: 38,
     justifyContent: "center",
-    width: 44
+    width: 38
   },
   addButtons: {
     flexDirection: "row",
-    gap: theme.spacing.sm
+    gap: 6
   },
   incomeIconButton: {
     backgroundColor: theme.colors.primarySoft,
@@ -504,6 +502,11 @@ function createStyles(theme: AppTheme) {
     flexWrap: "wrap",
     gap: theme.spacing.sm
   },
+  filterScrollContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.sm
+  },
   filterChip: {
     alignItems: "center",
     backgroundColor: theme.colors.surface,
@@ -512,8 +515,8 @@ function createStyles(theme: AppTheme) {
     borderWidth: 1,
     flexDirection: "row",
     gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm
+    paddingHorizontal: 12,
+    paddingVertical: 8
   },
   filterChipActive: {
     backgroundColor: theme.colors.primarySoft,
@@ -529,20 +532,26 @@ function createStyles(theme: AppTheme) {
   },
   advancedFilterButton: {
     alignItems: "center",
-    alignSelf: "flex-start",
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     flexDirection: "row",
-    gap: theme.spacing.xs,
-    minHeight: 38,
-    paddingHorizontal: theme.spacing.md
+    height: 34,
+    justifyContent: "center",
+    position: "relative",
+    width: 38
   },
-  advancedFilterButtonText: {
-    color: theme.colors.primary,
-    fontSize: 13,
-    fontWeight: "700"
+  filterBadge: {
+    backgroundColor: theme.colors.danger,
+    borderColor: theme.colors.surface,
+    borderRadius: 4,
+    borderWidth: 1,
+    height: 8,
+    position: "absolute",
+    right: 7,
+    top: 5,
+    width: 8
   },
   advancedFiltersCard: {
     gap: theme.spacing.sm
@@ -687,6 +696,11 @@ function createStyles(theme: AppTheme) {
     color: theme.colors.text,
     fontSize: 15,
     fontWeight: "700"
+  },
+  paymentAmountColumn: {
+    alignItems: "flex-end",
+    gap: 2,
+    maxWidth: 132
   },
   paidText: {
     color: theme.colors.textMuted,

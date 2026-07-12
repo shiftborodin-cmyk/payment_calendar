@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 
 export type AppThemeMode = "dark" | "light";
-export type AppAccentColor = "white" | "green" | "blue" | "mint" | "amber";
+export type AppAccentColor = "white" | "green" | "blue" | "mint" | "amber" | "violet" | "coral";
 
 type ThemeColors = {
   background: string;
@@ -39,7 +39,9 @@ const accentColors: Record<AppAccentColor, string> = {
   green: "#36D987",
   blue: "#7BA7FF",
   mint: "#7CE7C9",
-  amber: "#F2C96B"
+  amber: "#F2C96B",
+  violet: "#B59BFF",
+  coral: "#FF8FA3"
 };
 
 const darkBase: Omit<ThemeColors, "primary" | "primarySoft"> = {
