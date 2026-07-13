@@ -101,6 +101,17 @@ export function InteractiveForecastChart({ forecast }: { forecast: DailyBalanceF
           <Path d={areaPath} fill={theme.colors.primary} fillOpacity={0.08} />
           <Path d={linePath} fill="none" stroke={theme.colors.primary} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
           {selectedPoint ? (
+            <Line
+              stroke={theme.colors.primary}
+              strokeOpacity="0.48"
+              strokeWidth="1"
+              x1={selectedPoint.x}
+              x2={selectedPoint.x}
+              y1={selectedPoint.y + 8}
+              y2={plotBottom}
+            />
+          ) : null}
+          {selectedPoint ? (
             <Circle cx={selectedPoint.x} cy={selectedPoint.y} fill={theme.colors.primary} r="6" stroke={theme.colors.background} strokeWidth="3" />
           ) : null}
         </Svg>
@@ -108,9 +119,14 @@ export function InteractiveForecastChart({ forecast }: { forecast: DailyBalanceF
       <View {...panResponder.panHandlers} style={styles.touchLayer} />
       <View pointerEvents="none" style={styles.labels}>
         <Text style={[styles.label, { color: theme.colors.textMuted }]}>{shortDate(forecast[0].date)}</Text>
-        <Text style={[styles.label, { color: theme.colors.text, fontWeight: "700" }]}>{formatCurrency(selected.balance)}</Text>
+        <Text style={[styles.label, { color: theme.colors.text, fontWeight: "700" }]}>{shortDate(selected.date)}</Text>
         <Text style={[styles.label, { color: theme.colors.textMuted }]}>{shortDate(forecast[forecast.length - 1].date)}</Text>
       </View>
+      {selectedPoint ? (
+        <View pointerEvents="none" style={[styles.valueBubble, { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, left: Math.max(4, Math.min(width - 96, selectedPoint.x - 48)), top: Math.max(0, selectedPoint.y - 28) }]}>
+          <Text style={[styles.valueText, { color: theme.colors.text }]}>{formatCurrency(selected.balance)}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -119,5 +135,7 @@ const styles = StyleSheet.create({
   wrapper: { height: CHART_HEIGHT, marginTop: 6, position: "relative" },
   touchLayer: { bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
   labels: { bottom: 2, flexDirection: "row", justifyContent: "space-between", left: 0, position: "absolute", right: 0 },
-  label: { fontSize: 10 }
+  label: { fontSize: 10 },
+  valueBubble: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 3, position: "absolute" },
+  valueText: { fontSize: 10, fontWeight: "700" }
 });
