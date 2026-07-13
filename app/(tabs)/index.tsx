@@ -11,6 +11,7 @@ import { getCurrentLocale, translate } from "@/features/settings/i18n";
 import { getMonthEndDateString, getMonthStartDateString, getTodayDateString } from "@/features/payments/paymentDates";
 import { getMonthlyBalanceForecast } from "@/features/payments/paymentForecast";
 import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
+import { InteractiveForecastChart } from "@/features/payments/InteractiveForecastChart";
 import { expandPaymentOccurrences, sortPaymentsByDate } from "@/features/payments/paymentOccurrences";
 import { fetchPaymentItems } from "@/features/payments/paymentsApi";
 import { AppButton } from "@/shared/ui/AppButton";
@@ -114,17 +115,13 @@ export default function HomeScreen() {
   const currentMonthPaidTotal = sumPayments(currentMonthPaidExpenses);
   const currentMonthIncomeTotal = sumPayments(currentMonthIncome);
   const forecast = useMemo(
-    () =>
-      settings.includeIncome
-        ? Array.from(getMonthlyBalanceForecast(items, today, settings.openingBalance).values())
-        : [],
-    [items, settings.includeIncome, settings.openingBalance, today]
+    () => Array.from(getMonthlyBalanceForecast(visibleItems, today, settings.openingBalance).values()),
+    [settings.openingBalance, today, visibleItems]
   );
   const forecastIncome = forecast.reduce((sum, day) => sum + day.income, 0);
   const forecastExpense = forecast.reduce((sum, day) => sum + day.expense, 0);
   const projectedBalance = forecast[forecast.length - 1]?.balance ?? settings.openingBalance;
   const firstNegativeDay = forecast.find((day) => day.isNegative) ?? null;
-  const maxForecastValue = Math.max(1, ...forecast.map((day) => Math.abs(day.balance)));
   const nextPaymentCategory = nextPayment?.categoryId
     ? categories.find((category) => category.id === nextPayment.categoryId)
     : null;
@@ -211,12 +208,11 @@ export default function HomeScreen() {
           <AppButton icon="add" onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Доход", "Income")} variant="secondary" />
         </View> : null}
         <View style={styles.addAction}>
-          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Расход", "Expense")} />
+          <AppButton icon="remove" onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Расход", "Expense")} variant="secondary" />
         </View>
       </View>
 
-      {settings.includeIncome ? (
-        <Card style={styles.forecastCard}>
+      <Card style={styles.forecastCard}>
           <View style={styles.forecastHeader}>
             <View>
               <Text style={styles.cardTitle}>{translate("Прогноз денег", "Money forecast")}</Text>
@@ -242,33 +238,14 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.chart}>
-            <View style={styles.zeroLine} />
-            <View style={styles.chartColumns}>
-              {forecast.map((day) => {
-                const barHeight = Math.max(2, Math.round((Math.abs(day.balance) / maxForecastValue) * 34));
-
-                return (
-                  <View key={day.date} style={styles.chartColumn}>
-                    <View style={styles.chartHalfTop}>
-                      {day.balance >= 0 ? <View style={[styles.positiveBar, { height: barHeight }]} /> : null}
-                    </View>
-                    <View style={styles.chartHalfBottom}>
-                      {day.balance < 0 ? <View style={[styles.negativeBar, { height: barHeight }]} /> : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
+          <InteractiveForecastChart forecast={forecast} />
 
           <Text style={[styles.forecastNotice, firstNegativeDay && styles.forecastNoticeNegative]}>
             {firstNegativeDay
               ? `${translate("Возможная нехватка с", "Possible shortage from")} ${formatPaymentDate(firstNegativeDay.date)}`
               : translate("По текущему плану денег хватает на весь месяц.", "The current plan stays funded for the whole month.")}
           </Text>
-        </Card>
-      ) : null}
+      </Card>
 
       <Card style={styles.monthCard}>
         <View style={styles.monthRow}>

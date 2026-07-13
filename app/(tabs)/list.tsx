@@ -226,13 +226,13 @@ export default function ListScreen() {
               onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })}
               style={({ pressed }) => [styles.addIconButton, pressed && styles.buttonPressed]}
             >
-              <Ionicons color={theme.colors.background} name="remove" size={23} />
+              <Ionicons color={theme.colors.text} name="remove" size={23} />
             </Pressable>
             {settings.includeIncome ? (
               <Pressable
                 accessibilityLabel={translate("Добавить доход", "Add income")}
                 onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })}
-                style={({ pressed }) => [styles.addIconButton, styles.incomeIconButton, pressed && styles.buttonPressed]}
+                style={({ pressed }) => [styles.addIconButton, pressed && styles.buttonPressed]}
               >
                 <Ionicons color={theme.colors.text} name="add" size={23} />
               </Pressable>
@@ -481,7 +481,9 @@ function createStyles(theme: AppTheme) {
   },
   addIconButton: {
     alignItems: "center",
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
     borderRadius: 22,
     height: 44,
     justifyContent: "center",
@@ -490,11 +492,6 @@ function createStyles(theme: AppTheme) {
   addButtons: {
     flexDirection: "row",
     gap: theme.spacing.sm
-  },
-  incomeIconButton: {
-    backgroundColor: theme.colors.primarySoft,
-    borderColor: theme.colors.border,
-    borderWidth: 1
   },
   buttonPressed: {
     opacity: 0.78
