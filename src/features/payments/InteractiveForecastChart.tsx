@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { getCurrentLocale } from "@/features/settings/i18n";
@@ -22,6 +22,7 @@ export function InteractiveForecastChart({ forecast }: { forecast: DailyBalanceF
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(forecast.length ? forecast.length - 1 : 0);
+  const dragStartX = useRef(0);
 
   const points = useMemo(() => {
     if (forecast.length < 1) return [];
@@ -58,8 +59,12 @@ export function InteractiveForecastChart({ forecast }: { forecast: DailyBalanceF
     () => PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.65,
-      onPanResponderMove: (_, gesture) => selectByX(gesture.moveX),
-      onPanResponderRelease: (_, gesture) => selectByX(gesture.moveX)
+      onPanResponderGrant: (event) => {
+        dragStartX.current = event.nativeEvent.locationX;
+      },
+      onPanResponderMove: (_, gesture) => selectByX(dragStartX.current + gesture.dx),
+      onPanResponderRelease: (_, gesture) => selectByX(dragStartX.current + gesture.dx),
+      onPanResponderTerminationRequest: () => false
     }),
     [width, forecast.length]
   );
@@ -81,16 +86,33 @@ export function InteractiveForecastChart({ forecast }: { forecast: DailyBalanceF
           const dy = point.y - previous.y;
           const length = Math.sqrt(dx * dx + dy * dy);
           const angle = `${Math.atan2(dy, dx) * (180 / Math.PI)}deg`;
+          const midpointX = (previous.x + point.x) / 2;
+          const midpointY = (previous.y + point.y) / 2;
           return (
             <View
               key={`segment-${forecast[index + 1].date}`}
-              style={[styles.segment, { backgroundColor: forecast[index + 1].isNegative ? theme.colors.danger : theme.colors.primary, left: previous.x, top: previous.y, transform: [{ rotate: angle }], width: length }]}
+              style={[styles.segment, { backgroundColor: forecast[index + 1].isNegative ? theme.colors.danger : theme.colors.primary, left: midpointX - length / 2, top: midpointY - 1, transform: [{ rotate: angle }], width: length }]}
             />
           );
         })}
         {points.map((point, index) => (
           <View key={`point-${forecast[index].date}`} style={[styles.point, { backgroundColor: forecast[index].isNegative ? theme.colors.danger : theme.colors.primary, left: point.x - 3, top: point.y - 3 }]} />
         ))}
+        {points[selectedIndex] ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.selectedGuide,
+              { backgroundColor: theme.colors.primary, left: points[selectedIndex].x, top: PLOT_TOP, height: Math.max(1, CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM) }
+            ]}
+          />
+        ) : null}
+        {points[selectedIndex] ? (
+          <View
+            pointerEvents="none"
+            style={[styles.selectedPoint, { borderColor: theme.colors.background, backgroundColor: theme.colors.primary, left: points[selectedIndex].x - 6, top: points[selectedIndex].y - 6 }]}
+          />
+        ) : null}
       </View>
       <Pressable {...panResponder.panHandlers} onPress={(event) => selectByX(event.nativeEvent.locationX)} style={styles.touchLayer} />
       <View pointerEvents="none" style={styles.labels}>
@@ -106,8 +128,10 @@ const styles = StyleSheet.create({
   wrapper: { height: CHART_HEIGHT, marginTop: 8, overflow: "hidden", position: "relative" },
   plot: { bottom: PLOT_BOTTOM, left: 0, position: "absolute", right: 0, top: 0 },
   zeroLine: { height: 1, left: 0, position: "absolute", right: 0 },
-  segment: { height: 2, position: "absolute", transformOrigin: "left center" },
+  segment: { borderRadius: 2, height: 2, position: "absolute" },
   point: { borderRadius: 6, height: 6, position: "absolute", width: 6 },
+  selectedGuide: { opacity: 0.35, position: "absolute", width: 1 },
+  selectedPoint: { borderRadius: 8, borderWidth: 2, height: 12, position: "absolute", width: 12 },
   touchLayer: { bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
   labels: { bottom: 4, flexDirection: "row", justifyContent: "space-between", left: 0, position: "absolute", right: 0 },
   label: { fontSize: 10 }
