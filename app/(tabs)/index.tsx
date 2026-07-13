@@ -8,8 +8,9 @@ import { getCategoryCardBackground } from "@/features/categories/categoryColors"
 import { getLocalCategories, type LocalCategory } from "@/features/categories/localCategoriesStorage";
 import { useAppSettings } from "@/features/settings/AppSettingsContext";
 import { getCurrentLocale, translate } from "@/features/settings/i18n";
-import { getDayOfMonth, getMonthEndDateString, getMonthStartDateString, getTodayDateString } from "@/features/payments/paymentDates";
+import { getMonthEndDateString, getMonthStartDateString, getTodayDateString } from "@/features/payments/paymentDates";
 import { getMonthlyBalanceForecast } from "@/features/payments/paymentForecast";
+import { InteractiveForecastChart } from "@/features/payments/InteractiveForecastChart";
 import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
 import { expandPaymentOccurrences, sortPaymentsByDate } from "@/features/payments/paymentOccurrences";
 import { fetchPaymentItems } from "@/features/payments/paymentsApi";
@@ -124,7 +125,6 @@ export default function HomeScreen() {
   const forecastExpense = forecast.reduce((sum, day) => sum + day.expense, 0);
   const projectedBalance = forecast[forecast.length - 1]?.balance ?? settings.openingBalance;
   const firstNegativeDay = forecast.find((day) => day.isNegative) ?? null;
-  const maxForecastValue = Math.max(1, ...forecast.map((day) => Math.abs(day.balance)));
   const nextPaymentCategory = nextPayment?.categoryId
     ? categories.find((category) => category.id === nextPayment.categoryId)
     : null;
@@ -235,36 +235,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.chart}>
-            <View style={styles.zeroLine} />
-            <View style={styles.chartColumns}>
-              {forecast.map((day) => {
-                const barHeight = Math.max(2, Math.round((Math.abs(day.balance) / maxForecastValue) * 28));
-
-                return (
-                  <View key={day.date} style={styles.chartColumn}>
-                    <View style={styles.chartHalfTop}>
-                      {day.balance >= 0 ? <View style={[styles.positiveBar, { height: barHeight }]} /> : null}
-                    </View>
-                    <View style={styles.chartHalfBottom}>
-                      {day.balance < 0 ? <View style={[styles.negativeBar, { height: barHeight }]} /> : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-            <View style={styles.chartLabels}>
-              {forecast.map((day, index) => {
-                const shouldShow = index === 0 || index === forecast.length - 1 || ((index + 1) % 5 === 0 && index + 1 < forecast.length - 1);
-
-                return (
-                  <Text key={`${day.date}-label`} style={styles.chartLabel}>
-                    {shouldShow ? getDayOfMonth(day.date) : ""}
-                  </Text>
-                );
-              })}
-            </View>
-          </View>
+          <InteractiveForecastChart forecast={forecast} />
 
           <Text style={[styles.forecastNotice, firstNegativeDay && styles.forecastNoticeNegative]}>
             {firstNegativeDay
@@ -556,58 +527,6 @@ function createStyles(theme: AppTheme) {
   },
   forecastNegativeValue: {
     color: "#D98A8A"
-  },
-  chart: {
-    height: 86,
-    justifyContent: "center",
-    position: "relative"
-  },
-  zeroLine: {
-    backgroundColor: theme.colors.border,
-    height: 1,
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 34
-  },
-  chartColumns: {
-    flexDirection: "row",
-    height: 68
-  },
-  chartLabels: {
-    flexDirection: "row",
-    height: 16
-  },
-  chartLabel: {
-    color: theme.colors.textMuted,
-    flex: 1,
-    fontSize: 9,
-    textAlign: "center"
-  },
-  chartColumn: {
-    flex: 1
-  },
-  chartHalfTop: {
-    alignItems: "center",
-    height: 34,
-    justifyContent: "flex-end"
-  },
-  chartHalfBottom: {
-    alignItems: "center",
-    height: 34,
-    justifyContent: "flex-start"
-  },
-  positiveBar: {
-    backgroundColor: "rgba(54, 209, 125, 0.72)",
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
-    width: "62%"
-  },
-  negativeBar: {
-    backgroundColor: "rgba(210, 112, 112, 0.62)",
-    borderBottomLeftRadius: 2,
-    borderBottomRightRadius: 2,
-    width: "62%"
   },
   forecastNotice: {
     color: theme.colors.textMuted,
