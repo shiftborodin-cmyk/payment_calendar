@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { PanResponder, StyleSheet, Text, View } from "react-native";
 
 import { getCurrentLocale } from "@/features/settings/i18n";
 import { formatPaymentDate } from "@/features/payments/paymentFormatters";
@@ -57,10 +57,11 @@ export function InteractiveForecastChart({ forecast }: { forecast: DailyBalanceF
 
   const panResponder = useMemo(
     () => PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.65,
       onPanResponderGrant: (event) => {
         dragStartX.current = event.nativeEvent.locationX;
+        selectByX(event.nativeEvent.locationX);
       },
       onPanResponderMove: (_, gesture) => selectByX(dragStartX.current + gesture.dx),
       onPanResponderRelease: (_, gesture) => selectByX(dragStartX.current + gesture.dx),
@@ -95,26 +96,14 @@ export function InteractiveForecastChart({ forecast }: { forecast: DailyBalanceF
             />
           );
         })}
-        {points.map((point, index) => (
-          <View key={`point-${forecast[index].date}`} style={[styles.point, { backgroundColor: forecast[index].isNegative ? theme.colors.danger : theme.colors.primary, left: point.x - 3, top: point.y - 3 }]} />
-        ))}
         {points[selectedIndex] ? (
           <View
             pointerEvents="none"
-            style={[
-              styles.selectedGuide,
-              { backgroundColor: theme.colors.primary, left: points[selectedIndex].x, top: PLOT_TOP, height: Math.max(1, CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM) }
-            ]}
-          />
-        ) : null}
-        {points[selectedIndex] ? (
-          <View
-            pointerEvents="none"
-            style={[styles.selectedPoint, { borderColor: theme.colors.background, backgroundColor: theme.colors.primary, left: points[selectedIndex].x - 6, top: points[selectedIndex].y - 6 }]}
+            style={[styles.selectedPoint, { borderColor: theme.colors.background, backgroundColor: selected.isNegative ? theme.colors.danger : theme.colors.primary, left: points[selectedIndex].x - 6, top: points[selectedIndex].y - 6 }]}
           />
         ) : null}
       </View>
-      <Pressable {...panResponder.panHandlers} onPress={(event) => selectByX(event.nativeEvent.locationX)} style={styles.touchLayer} />
+      <View {...panResponder.panHandlers} style={styles.touchLayer} />
       <View pointerEvents="none" style={styles.labels}>
         <Text style={[styles.label, { color: theme.colors.textMuted }]}>{formatPaymentDate(forecast[0].date).replace(/\s*\d{4}.*/, "")}</Text>
         <Text style={[styles.label, { color: theme.colors.text, fontWeight: "700" }]}>{formatCurrency(selected.balance)}</Text>
@@ -129,8 +118,6 @@ const styles = StyleSheet.create({
   plot: { bottom: PLOT_BOTTOM, left: 0, position: "absolute", right: 0, top: 0 },
   zeroLine: { height: 1, left: 0, position: "absolute", right: 0 },
   segment: { borderRadius: 2, height: 2, position: "absolute" },
-  point: { borderRadius: 6, height: 6, position: "absolute", width: 6 },
-  selectedGuide: { opacity: 0.35, position: "absolute", width: 1 },
   selectedPoint: { borderRadius: 8, borderWidth: 2, height: 12, position: "absolute", width: 12 },
   touchLayer: { bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
   labels: { bottom: 4, flexDirection: "row", justifyContent: "space-between", left: 0, position: "absolute", right: 0 },
