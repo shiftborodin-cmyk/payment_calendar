@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Payment Calendar",
+    "slug": "payment-calendar",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "paymentcalendar",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.personal.paymentcalendar"
+    },
+    "android": {
+      "package": "com.personal.paymentcalendar",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1410"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-notifications"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}
