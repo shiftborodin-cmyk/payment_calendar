@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
 import { getCategoryCardBackground } from "@/features/categories/categoryColors";
@@ -13,7 +13,7 @@ import { getMonthlyBalanceForecast } from "@/features/payments/paymentForecast";
 import { InteractiveForecastChart } from "@/features/payments/InteractiveForecastChart";
 import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
 import { expandPaymentOccurrences, sortPaymentsByDate } from "@/features/payments/paymentOccurrences";
-import { fetchPaymentItems } from "@/features/payments/paymentsApi";
+import { fetchPaymentItems, setPaymentItemStatus } from "@/features/payments/paymentsApi";
 import { AppButton } from "@/shared/ui/AppButton";
 import { Card } from "@/shared/ui/Card";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
@@ -48,6 +48,7 @@ export default function HomeScreen() {
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [payingNext, setPayingNext] = useState(false);
   const focusedRef = useRef(false);
   const loadingRef = useRef(false);
   const displayName = settings.displayName.trim() || user?.email?.split("@")[0] || "друг";
@@ -129,6 +130,25 @@ export default function HomeScreen() {
     ? categories.find((category) => category.id === nextPayment.categoryId)
     : null;
 
+  async function handlePayNextPayment() {
+    if (!user || !nextPayment || payingNext) {
+      return;
+    }
+
+    setPayingNext(true);
+    try {
+      await setPaymentItemStatus(user.id, nextPayment.id, "paid");
+      await loadNextPayment();
+    } catch (payError) {
+      Alert.alert(
+        translate("Ошибка", "Error"),
+        payError instanceof Error ? payError.message : translate("Не удалось оплатить платёж.", "Could not mark payment as paid.")
+      );
+    } finally {
+      setPayingNext(false);
+    }
+  }
+
   useFocusEffect(
     useCallback(() => {
       focusedRef.current = true;
@@ -161,6 +181,17 @@ export default function HomeScreen() {
             />
           </View>
           <Text style={styles.cardTitle}>{translate("Ближайший платёж", "Next payment")}</Text>
+          {nextPayment ? (
+            <Pressable
+              accessibilityLabel={translate("Оплатить ближайший платёж", "Pay next payment")}
+              disabled={payingNext}
+              onPress={() => void handlePayNextPayment()}
+              style={({ pressed }) => [styles.payNextButton, payingNext && styles.payNextButtonDisabled, pressed && styles.buttonPressed]}
+            >
+              <Ionicons color={theme.colors.background} name="checkmark" size={16} />
+              <Text style={styles.payNextButtonText}>{translate("Оплатить", "Pay")}</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {nextPayment ? (
@@ -329,6 +360,27 @@ function createStyles(theme: AppTheme) {
     color: theme.colors.text,
     fontSize: 17,
     fontWeight: "600"
+  },
+  payNextButton: {
+    alignItems: "center",
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.sm,
+    flexDirection: "row",
+    gap: 4,
+    marginLeft: "auto",
+    paddingHorizontal: 9,
+    paddingVertical: 6
+  },
+  payNextButtonDisabled: {
+    opacity: 0.55
+  },
+  buttonPressed: {
+    opacity: 0.78
+  },
+  payNextButtonText: {
+    color: theme.colors.background,
+    fontSize: 12,
+    fontWeight: "800"
   },
   nextPaymentSummary: {
     alignItems: "center",

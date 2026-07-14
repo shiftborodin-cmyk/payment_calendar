@@ -398,19 +398,51 @@ export default function ListScreen() {
                       {item.comment ? <Text style={styles.comment}>{item.comment}</Text> : null}
 
                       <View style={styles.actions}>
-                        {item.isGeneratedOccurrence ? (
+                      {item.isGeneratedOccurrence ? (
+                        <>
                           <Pressable
                             onPress={() =>
-                              router.push({ pathname: "/edit-payment/[id]", params: { id: sourcePaymentId } })
+                              router.push({
+                                pathname: "/edit-payment/[id]",
+                                params: { id: sourcePaymentId, occurrenceDate: item.date }
+                              })
                             }
                             style={styles.smallButton}
                           >
-                            <Text style={styles.smallButtonText}>{translate("Редактировать исходный платёж", "Edit original payment")}</Text>
+                            <Text style={styles.smallButtonText}>{translate("Изменить", "Edit")}</Text>
                           </Pressable>
+                          <Pressable
+                            disabled={actionId === item.id}
+                            onPress={() => handleTogglePaid(item)}
+                            style={styles.smallButton}
+                          >
+                            <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={styles.smallButtonText}>
+                              {item.status === "paid"
+                                ? translate("Вернуть", "Restore")
+                                : item.type === "income"
+                                  ? translate("Получено", "Mark received")
+                                  : translate("Оплатить", "Mark paid")}
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            disabled={actionId === item.id}
+                            onPress={() => handleDelete(item)}
+                            style={[styles.smallButton, styles.deleteButton]}
+                          >
+                            <Text style={[styles.smallButtonText, styles.deleteButtonText]}>{translate("Удалить", "Delete")}</Text>
+                          </Pressable>
+                        </>
                         ) : (
                           <>
                             <Pressable
-                              onPress={() => router.push({ pathname: "/edit-payment/[id]", params: { id: item.id } })}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/edit-payment/[id]",
+                                  params: item.status === "paid" && isRepeating
+                                    ? { id: sourcePaymentId, occurrenceDate: item.date }
+                                    : { id: item.id }
+                                })
+                              }
                               style={styles.smallButton}
                             >
                               <Text style={styles.smallButtonText}>{translate("Изменить", "Edit")}</Text>

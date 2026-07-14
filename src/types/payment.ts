@@ -10,6 +10,14 @@ export type NotificationOffset =
   | "three_days_before"
   | "one_week_before";
 
+export type PaymentOccurrenceOverride = {
+  title: string;
+  amount: number | null;
+  categoryId: string | null;
+  comment: string | null;
+  type: PaymentType;
+};
+
 export type PaymentItem = {
   id: string;
   userId: string;
@@ -26,6 +34,9 @@ export type PaymentItem = {
   notificationOffsets: NotificationOffset[];
   originalPaymentId?: string;
   isGeneratedOccurrence?: boolean;
+  paidOccurrenceDates?: string[];
+  deletedOccurrenceDates?: string[];
+  occurrenceOverrides?: Record<string, PaymentOccurrenceOverride>;
   createdAt: string;
   updatedAt: string;
 };

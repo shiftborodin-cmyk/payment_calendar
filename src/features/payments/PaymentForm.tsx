@@ -34,6 +34,8 @@ type PaymentFormProps = {
   onCancel: () => void;
   initialType?: PaymentType;
   lockType?: boolean;
+  lockDate?: boolean;
+  hideRepeatRule?: boolean;
 };
 
 const quickDateOptions = [
@@ -58,7 +60,9 @@ export function PaymentForm({
   onSubmit,
   onCancel,
   initialType = "expense",
-  lockType = false
+  lockType = false,
+  lockDate = false,
+  hideRepeatRule = false
 }: PaymentFormProps) {
   const { user } = useAuth();
   const { settings } = useAppSettings();
@@ -196,39 +200,52 @@ export function PaymentForm({
         <View style={styles.group}>
           <Text style={styles.groupLabel}>{translate("Дата", "Date")}</Text>
           <Pressable
-            accessibilityRole="button"
+            accessibilityRole={lockDate ? undefined : "button"}
+            disabled={lockDate}
             onPress={() => {
+              if (lockDate) {
+                return;
+              }
+
               setCalendarMonth(date);
               setDatePickerVisible(true);
             }}
-            style={({ pressed }) => [styles.dateButton, pressed && styles.dateButtonPressed]}
+            style={({ pressed }) => [
+              styles.dateButton,
+              lockDate && styles.dateButtonLocked,
+              pressed && !lockDate && styles.dateButtonPressed
+            ]}
           >
             <Ionicons color={theme.colors.text} name="calendar-outline" size={20} />
             <Text style={styles.dateButtonText}>{date}</Text>
-            <Text style={styles.dateButtonHint}>{translate("Выбрать", "Choose")}</Text>
+            <Text style={styles.dateButtonHint}>
+              {lockDate ? translate("Это повторение", "This occurrence") : translate("Выбрать", "Choose")}
+            </Text>
           </Pressable>
         </View>
-        <View style={styles.chipGroup}>
-          {quickDateOptions.map((option) => (
-            (() => {
-              const optionDate = option.getValue();
-              const isActive = date === optionDate;
+        {!lockDate ? (
+          <View style={styles.chipGroup}>
+            {quickDateOptions.map((option) => (
+              (() => {
+                const optionDate = option.getValue();
+                const isActive = date === optionDate;
 
-              return (
-                <Pressable
-                  key={option.ru}
-                  onPress={() => {
-                    setDate(optionDate);
-                    setCalendarMonth(optionDate);
-                  }}
-                  style={[styles.chip, isActive && styles.chipActive]}
-                >
-                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{translate(option.ru, option.en)}</Text>
-                </Pressable>
-              );
-            })()
-          ))}
-        </View>
+                return (
+                  <Pressable
+                    key={option.ru}
+                    onPress={() => {
+                      setDate(optionDate);
+                      setCalendarMonth(optionDate);
+                    }}
+                    style={[styles.chip, isActive && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{translate(option.ru, option.en)}</Text>
+                  </Pressable>
+                );
+              })()
+            ))}
+          </View>
+        ) : null}
         <AppTextInput
           label={translate("Комментарий", "Comment")}
           multiline
@@ -265,22 +282,24 @@ export function PaymentForm({
           {categoryError ? <Text style={styles.hintText}>{categoryError}</Text> : null}
         </View> : null}
 
-        <View style={styles.group}>
-          <Text style={styles.groupLabel}>{translate("Повторяемость", "Repeat")}</Text>
-          <View style={styles.chipGroup}>
-            {repeatOptions.map((option) => (
-              <Pressable
-                key={option.value}
-                onPress={() => setRepeatRule(option.value)}
-                style={[styles.chip, repeatRule === option.value && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, repeatRule === option.value && styles.chipTextActive]}>
-                    {translate(option.ru, option.en)}
-                </Text>
-              </Pressable>
-            ))}
+        {!hideRepeatRule ? (
+          <View style={styles.group}>
+            <Text style={styles.groupLabel}>{translate("Повторяемость", "Repeat")}</Text>
+            <View style={styles.chipGroup}>
+              {repeatOptions.map((option) => (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setRepeatRule(option.value)}
+                  style={[styles.chip, repeatRule === option.value && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, repeatRule === option.value && styles.chipTextActive]}>
+                      {translate(option.ru, option.en)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
+        ) : null}
 
         {formError ? <Text style={styles.error}>{formError}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -340,6 +359,9 @@ function createStyles(theme: AppTheme) {
   },
   dateButtonPressed: {
     opacity: 0.82
+  },
+  dateButtonLocked: {
+    opacity: 0.72
   },
   dateButtonText: {
     color: theme.colors.text,

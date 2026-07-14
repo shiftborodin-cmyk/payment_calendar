@@ -21,14 +21,19 @@ function getDefaultEndDate() {
   return addMonthsClamped(getTodayDateString(), defaultHorizonMonths);
 }
 
-function createOccurrence(payment: PaymentItem, date: string, isGenerated: boolean): PaymentItem {
+function createOccurrence(payment: PaymentItem, date: string, isGenerated: boolean, status: PaymentItem["status"]): PaymentItem {
   if (!isGenerated) {
-    return payment;
+    return {
+      ...payment,
+      date,
+      status
+    };
   }
 
   return {
     ...payment,
     date,
+    status,
     id: `${payment.id}:${date}`,
     isGeneratedOccurrence: true,
     originalPaymentId: payment.id
@@ -68,9 +73,9 @@ export function expandPaymentOccurrences(payments: PaymentItem[], options: Expan
     const repeatRule = payment.repeatRule ?? "none";
     const sourceDate = payment.date;
 
-    if (repeatRule === "none" || payment.status === "paid") {
+    if (repeatRule === "none") {
       if (isDateSameOrAfter(sourceDate, startDate) && compareDateStrings(sourceDate, endDate) <= 0) {
-        occurrences.push(createOccurrence(payment, sourceDate, false));
+        occurrences.push(payment);
       }
 
       return;
@@ -86,7 +91,15 @@ export function expandPaymentOccurrences(payments: PaymentItem[], options: Expan
       }
 
       if (isDateSameOrAfter(occurrenceDate, startDate)) {
-        occurrences.push(createOccurrence(payment, occurrenceDate, index > 0));
+        if (payment.deletedOccurrenceDates?.includes(occurrenceDate)) {
+          index += 1;
+          continue;
+        }
+
+        const override = payment.occurrenceOverrides?.[occurrenceDate];
+        const occurrencePayment = override ? { ...payment, ...override, categoryId: override.categoryId, repeatRule: "none" as const } : payment;
+        const isPaid = payment.paidOccurrenceDates?.includes(occurrenceDate) || (index === 0 && payment.status === "paid");
+        occurrences.push(createOccurrence(occurrencePayment, occurrenceDate, index > 0, isPaid ? "paid" : "scheduled"));
       }
 
       index += 1;

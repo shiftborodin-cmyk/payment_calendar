@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import type { PaymentItem, PaymentStatus, PaymentType, RepeatRule } from "@/types/payment";
+import type { PaymentItem, PaymentOccurrenceOverride, PaymentStatus, PaymentType, RepeatRule } from "@/types/payment";
 
 export type LocalPaymentInput = {
   title: string;
@@ -23,6 +23,9 @@ type LocalPaymentRow = {
   comment: string | null;
   status: PaymentStatus;
   repeat_rule?: RepeatRule;
+  paid_occurrence_dates?: string[];
+  deleted_occurrence_dates?: string[];
+  occurrence_overrides?: Record<string, PaymentOccurrenceOverride>;
   type?: PaymentType;
   created_at: string;
   updated_at: string;
@@ -123,6 +126,9 @@ function mapLocalPayment(row: LocalPaymentRow): PaymentItem {
     status: row.status,
     type: row.type === "income" ? "income" : "expense",
     repeatRule: row.repeat_rule ?? "none",
+    paidOccurrenceDates: row.paid_occurrence_dates ?? [],
+    deletedOccurrenceDates: row.deleted_occurrence_dates ?? [],
+    occurrenceOverrides: row.occurrence_overrides ?? {},
     notificationOffsets: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -191,21 +197,66 @@ export async function updateLocalPayment(userId: string, paymentId: string, inpu
   return withLocalDiagnostics("Обновление локального платежа", async () => {
     const rows = await readRows(userId);
     const now = new Date().toISOString();
-    const nextRows = rows.map((payment) =>
-      payment.id === paymentId
-        ? {
-            ...payment,
+    const nextRows = rows.map((payment) => {
+      if (payment.id !== paymentId) {
+        return payment;
+      }
+
+      const scheduleChanged = payment.date !== input.date || (payment.repeat_rule ?? "none") !== input.repeatRule;
+
+      return {
+        ...payment,
+        title: input.title,
+        amount: input.amount,
+        category_id: input.categoryId ?? null,
+        date: input.date,
+        comment: input.comment,
+        repeat_rule: input.repeatRule,
+        type: input.type,
+        ...(scheduleChanged
+          ? {
+              paid_occurrence_dates: [],
+              deleted_occurrence_dates: [],
+              occurrence_overrides: {}
+            }
+          : {}),
+        updated_at: now
+      };
+    });
+
+    await writeRows(userId, nextRows);
+  });
+}
+
+export async function updateLocalPaymentOccurrence(
+  userId: string,
+  paymentId: string,
+  occurrenceDate: string,
+  input: LocalPaymentInput
+) {
+  return withLocalDiagnostics("Обновление локального платежа", async () => {
+    const rows = await readRows(userId);
+    const now = new Date().toISOString();
+    const nextRows = rows.map((payment) => {
+      if (payment.id !== paymentId) {
+        return payment;
+      }
+
+      return {
+        ...payment,
+        occurrence_overrides: {
+          ...(payment.occurrence_overrides ?? {}),
+          [occurrenceDate]: {
             title: input.title,
             amount: input.amount,
-            category_id: input.categoryId ?? null,
-            date: input.date,
+            categoryId: input.categoryId ?? null,
             comment: input.comment,
-            repeat_rule: input.repeatRule,
-            type: input.type,
-            updated_at: now
+            type: input.type
           }
-        : payment
-    );
+        },
+        updated_at: now
+      };
+    });
 
     await writeRows(userId, nextRows);
   });
@@ -214,6 +265,31 @@ export async function updateLocalPayment(userId: string, paymentId: string, inpu
 export async function deleteLocalPayment(userId: string, paymentId: string) {
   return withLocalDiagnostics("Удаление локального платежа", async () => {
     const rows = await readRows(userId);
+    const separatorIndex = paymentId.lastIndexOf(":");
+    const occurrenceDate = separatorIndex > 0 ? paymentId.slice(separatorIndex + 1) : null;
+    const sourcePaymentId = separatorIndex > 0 ? paymentId.slice(0, separatorIndex) : paymentId;
+    const isGeneratedOccurrence = Boolean(occurrenceDate && /^\d{4}-\d{2}-\d{2}$/.test(occurrenceDate));
+
+    if (isGeneratedOccurrence) {
+      const nextRows = rows.map((payment) => {
+        if (payment.id !== sourcePaymentId || !payment.repeat_rule || payment.repeat_rule === "none") {
+          return payment;
+        }
+
+        const deletedDates = new Set(payment.deleted_occurrence_dates ?? []);
+        deletedDates.add(occurrenceDate!);
+
+        return {
+          ...payment,
+          deleted_occurrence_dates: Array.from(deletedDates).sort(),
+          updated_at: new Date().toISOString()
+        };
+      });
+
+      await writeRows(userId, nextRows);
+      return;
+    }
+
     await writeRows(userId, rows.filter((payment) => payment.id !== paymentId));
   });
 }
@@ -222,15 +298,40 @@ export async function setLocalPaymentStatus(userId: string, paymentId: string, s
   return withLocalDiagnostics("Изменение статуса локального платежа", async () => {
     const rows = await readRows(userId);
     const now = new Date().toISOString();
-    const nextRows = rows.map((payment) =>
-      payment.id === paymentId
-        ? {
-            ...payment,
-            status,
-            updated_at: now
-          }
-        : payment
-    );
+    const separatorIndex = paymentId.lastIndexOf(":");
+    const generatedDate = separatorIndex > 0 ? paymentId.slice(separatorIndex + 1) : null;
+    const sourcePaymentId = separatorIndex > 0 ? paymentId.slice(0, separatorIndex) : paymentId;
+    const isGeneratedOccurrence = Boolean(generatedDate && /^\d{4}-\d{2}-\d{2}$/.test(generatedDate));
+
+    const nextRows = rows.map((payment) => {
+      if (payment.id !== sourcePaymentId) {
+        return payment;
+      }
+
+      if (payment.repeat_rule && payment.repeat_rule !== "none") {
+        const occurrenceDate = isGeneratedOccurrence ? generatedDate! : payment.date;
+        const paidDates = new Set(payment.paid_occurrence_dates ?? []);
+
+        if (status === "paid") {
+          paidDates.add(occurrenceDate);
+        } else {
+          paidDates.delete(occurrenceDate);
+        }
+
+        return {
+          ...payment,
+          status: "scheduled" as PaymentStatus,
+          paid_occurrence_dates: Array.from(paidDates).sort(),
+          updated_at: now
+        };
+      }
+
+      return {
+        ...payment,
+        status,
+        updated_at: now
+      };
+    });
 
     await writeRows(userId, nextRows);
   });

@@ -2,7 +2,8 @@
   "expo": {
     "name": "Payment Calendar",
     "slug": "payment-calendar",
-    "version": "0.1.1",
+    "version": "0.1.2",
+    "icon": "./assets/payment-calendar-icon.png",
     "orientation": "portrait",
     "scheme": "paymentcalendar",
     "userInterfaceStyle": "dark",
@@ -13,7 +14,8 @@
     "android": {
       "package": "com.personal.paymentcalendar",
       "adaptiveIcon": {
-        "backgroundColor": "#0B1410"
+        "backgroundColor": "#0B1410",
+        "foregroundImage": "./assets/payment-calendar-icon.png"
       }
     },
     "plugins": [
