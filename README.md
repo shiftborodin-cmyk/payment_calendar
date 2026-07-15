@@ -19,13 +19,14 @@
 - тёмная и светлая темы;
 - русский и английский языки;
 - настройка имени пользователя и акцентного цвета интерфейса;
-- Android APK для установки на телефон.
+- Android APK для установки на телефон;
+- веб-приложение для iPhone с установкой на экран «Домой».
 
 ## Версии APK
 
 | Версия | Статус | Что изменилось |
 | --- | --- | --- |
-| **0.1.3** | Готова | 28 иконок категорий в ровной сетке 7×4; компактный список категорий; быстрые доходы и расходы сразу попадают в оплаченные; разделители тысяч через точку; доходы включены по умолчанию; тише диагностические логи и устойчивее обработка сетевых ошибок. [Скачать APK](https://github.com/shiftborodin-cmyk/payment_calendar/releases/download/v0.1.3/payment-calendar-0.1.3.apk) · [Описание релиза](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.3) |
+| **0.1.3** | Готова | Добавлено устанавливаемое [веб-приложение для iPhone](https://payment-calendar.expo.app); 28 иконок категорий в ровной сетке 7×4; компактный список категорий; быстрые доходы и расходы сразу попадают в оплаченные; разделители тысяч через точку; доходы включены по умолчанию; тише диагностические логи и устойчивее обработка сетевых ошибок. [Скачать APK](https://github.com/shiftborodin-cmyk/payment_calendar/releases/download/v0.1.3/payment-calendar-0.1.3.apk) · [Описание релиза](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.3) |
 | **0.1.2** | Готова | Исправлена оплата повторяющихся платежей по отдельной дате; добавлена кнопка оплаты ближайшего платежа на главной; улучшены редактирование серии и отдельного повторения; обновлены график и иконка приложения. [Скачать APK](https://github.com/shiftborodin-cmyk/payment_calendar/releases/download/v0.1.2/payment-calendar-0.1.2.apk) · [Описание релиза](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.2) |
 | **0.1.1** | Стабильная | Полировка календаря и экрана настроек, исправления сборки и обновление интерфейса. [Тег v0.1.1](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.1) |
 | **0.1.0** | Первая стабильная | Первый рабочий Android MVP: календарь, платежи, категории, прогноз остатка и локальное хранение. [Тег v0.1.0](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.0) |
@@ -34,9 +35,15 @@ APK версии **0.1.3** можно скачать из [релиза на Git
 
 ## Данные и приватность
 
-Платежи и категории хранятся локально через AsyncStorage и не отправляются на сервер. Supabase используется только для авторизации пользователя. Синхронизация между устройствами пока не включена.
+Платежи и категории хранятся локально через AsyncStorage и не отправляются на сервер. Веб-версия работает без регистрации и хранит отдельные данные в браузере конкретного устройства. Supabase используется только для авторизации в мобильной версии. Синхронизация между устройствами не включена.
 
 ## Попробовать приложение
+
+### iPhone
+
+Откройте [веб-приложение](https://payment-calendar.expo.app) в Safari, нажмите «Поделиться» → «На экран “Домой”» и включите «Открывать как веб-приложение». После установки календарь появится на главном экране и будет открываться отдельным окном.
+
+### Android
 
 Для установки готового APK откройте [страницу релизов](https://github.com/shiftborodin-cmyk/payment_calendar/releases) или [текущую сборку в Expo](https://expo.dev/accounts/jugeniy/projects/payment-calendar/builds/55f5025e-cbc7-448c-ae3a-876ba43dd409).
 
@@ -54,6 +61,7 @@ npx expo start -c
 - React Native + Expo;
 - TypeScript;
 - Expo Router;
+- React Native Web и устанавливаемое PWA;
 - AsyncStorage для локальных платежей и категорий;
 - Supabase Auth;
 - EAS Build для Android APK.
@@ -69,5 +77,6 @@ npx expo start -c
 ## Ссылки
 
 - [GitHub проекта](https://github.com/shiftborodin-cmyk/payment_calendar)
+- [Веб-приложение для iPhone](https://payment-calendar.expo.app)
 - [Все релизы](https://github.com/shiftborodin-cmyk/payment_calendar/releases)
 - [Сборки Android в Expo](https://expo.dev/accounts/jugeniy/projects/payment-calendar/builds)
