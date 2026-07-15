@@ -26,6 +26,7 @@ import {
   moveDateByMonthsKeepingDesiredDay,
   parsePaymentDate
 } from "@/features/payments/paymentDates";
+import { formatCurrencyValue } from "@/features/payments/paymentFormatters";
 import { getForecastForDate, getMonthlyBalanceForecast } from "@/features/payments/paymentForecast";
 import { formatPaymentAmount } from "@/features/payments/paymentFormatters";
 import {
@@ -91,14 +92,6 @@ function sumPaymentsNet(payments: PaymentItem[]) {
     const amount = payment.amount ?? 0;
     return sum + (payment.type === "income" ? amount : -amount);
   }, 0);
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat(getCurrentLocale(), {
-    currency: "RUB",
-    maximumFractionDigits: 0,
-    style: "currency"
-  }).format(value);
 }
 
 export default function CalendarScreen() {
@@ -389,7 +382,7 @@ export default function CalendarScreen() {
                 <Text style={styles.weekCardSummary}>
                   {dayPayments.length === 0
                     ? translate("Нет операций", "No operations")
-                    : `${dayPayments.length} · ${formatCurrency(settings.includeIncome ? sumPaymentsNet(dayPayments) : sumPayments(dayPayments))}`}
+                    : `${dayPayments.length} · ${formatCurrencyValue(settings.includeIncome ? sumPaymentsNet(dayPayments) : sumPayments(dayPayments))}`}
                 </Text>
               </View>
               {dayPayments.length > 0 ? (
@@ -522,12 +515,12 @@ export default function CalendarScreen() {
         <Card style={styles.daySummaryCard}>
           <Text style={styles.daySummaryText}>{translate("Операций", "Operations")}: {selectedPayments.length}</Text>
           <Text style={styles.daySummaryText}>
-            {settings.includeIncome ? translate("Итог", "Net") : translate("Сумма", "Total")}: {formatCurrency(selectedTotal)}
+            {settings.includeIncome ? translate("Итог", "Net") : translate("Сумма", "Total")}: {formatCurrencyValue(selectedTotal)}
           </Text>
         </Card>
         {settings.includeIncome && selectedForecast ? (
           <Text style={[styles.forecastText, selectedForecast.isNegative && styles.forecastTextNegative]}>
-            {translate("Прогноз остатка", "Forecast balance")}: {formatCurrency(selectedForecast.balance)}
+            {translate("Прогноз остатка", "Forecast balance")}: {formatCurrencyValue(selectedForecast.balance)}
           </Text>
         ) : null}
         {selectedPayments.length === 0 ? (
@@ -591,7 +584,7 @@ export default function CalendarScreen() {
                 <View style={styles.periodDateHeader}>
                   <Text style={styles.periodDateTitle}>{formatPaymentDate(dateString)}</Text>
                   <Text style={styles.periodDateTotal}>
-                    {formatCurrency(settings.includeIncome ? sumPaymentsNet(datePayments) : sumPayments(datePayments))}
+                    {formatCurrencyValue(settings.includeIncome ? sumPaymentsNet(datePayments) : sumPayments(datePayments))}
                   </Text>
                 </View>
                 {datePayments.map((payment) => {

@@ -36,6 +36,7 @@ const defaultCategories: Array<Pick<LocalCategoryRow, "name" | "color" | "icon">
 ];
 
 const localOperationTimeoutMs = 5000;
+const verboseLocalDiagnostics = false;
 let localRequestCounter = 0;
 
 function getOperationName(label: string) {
@@ -70,7 +71,9 @@ async function withLocalCategoryDiagnostics<T>(label: string, operation: () => P
   const timeoutMessage = `${label}: локальное хранилище не ответило за 5 секунд`;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-  console.log(`[localCategories] ${operationName} start #${requestId}`);
+  if (verboseLocalDiagnostics) {
+    console.log(`[localCategories] ${operationName} start #${requestId}`);
+  }
 
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -83,10 +86,12 @@ async function withLocalCategoryDiagnostics<T>(label: string, operation: () => P
     const result = await Promise.race([operation(), timeout]);
     const successMeta = getSuccessMeta(result);
 
-    if (successMeta) {
-      console.log(`[localCategories] ${operationName} success #${requestId}`, successMeta);
-    } else {
-      console.log(`[localCategories] ${operationName} success #${requestId}`);
+    if (verboseLocalDiagnostics) {
+      if (successMeta) {
+        console.log(`[localCategories] ${operationName} success #${requestId}`, successMeta);
+      } else {
+        console.log(`[localCategories] ${operationName} success #${requestId}`);
+      }
     }
 
     return result;

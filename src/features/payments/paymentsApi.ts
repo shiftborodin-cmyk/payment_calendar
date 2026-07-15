@@ -24,14 +24,15 @@ export async function fetchPaymentItemById(userId: string, id: string) {
 }
 
 export async function createPaymentItem(input: CreatePaymentInput) {
-  await createLocalPayment(input.userId, {
+  return createLocalPayment(input.userId, {
     title: input.title,
     amount: input.amount,
     categoryId: input.categoryId,
     date: input.date,
     comment: input.comment,
     repeatRule: input.repeatRule,
-    type: input.type
+    type: input.type,
+    status: input.status
   });
 }
 

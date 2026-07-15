@@ -7,7 +7,7 @@ import { getLocalCategories, type LocalCategory } from "@/features/categories/lo
 import { useAppSettings } from "@/features/settings/AppSettingsContext";
 import { translate } from "@/features/settings/i18n";
 import { isValidPaymentDate } from "@/features/payments/paymentDates";
-import { getTodayDateInputValue } from "@/features/payments/paymentFormatters";
+import { formatAmountInput, getTodayDateInputValue } from "@/features/payments/paymentFormatters";
 import { getDateAfterDays, getDateAfterMonths } from "@/features/payments/paymentOccurrences";
 import { AppButton } from "@/shared/ui/AppButton";
 import { AppTextInput } from "@/shared/ui/AppTextInput";
@@ -36,6 +36,7 @@ type PaymentFormProps = {
   lockType?: boolean;
   lockDate?: boolean;
   hideRepeatRule?: boolean;
+  initialDate?: string;
 };
 
 const quickDateOptions = [
@@ -62,16 +63,17 @@ export function PaymentForm({
   initialType = "expense",
   lockType = false,
   lockDate = false,
-  hideRepeatRule = false
+  hideRepeatRule = false,
+  initialDate
 }: PaymentFormProps) {
   const { user } = useAuth();
   const { settings } = useAppSettings();
   const theme = useTheme();
   const styles = createStyles(theme);
   const [title, setTitle] = useState(initialPayment?.title ?? "");
-  const [amount, setAmount] = useState(initialPayment?.amount?.toString() ?? "");
-  const [date, setDate] = useState(initialPayment?.date ?? getTodayDateInputValue());
-  const [calendarMonth, setCalendarMonth] = useState(initialPayment?.date ?? getTodayDateInputValue());
+  const [amount, setAmount] = useState(initialPayment?.amount === null || initialPayment?.amount === undefined ? "" : formatAmountInput(String(initialPayment.amount)));
+  const [date, setDate] = useState(initialPayment?.date ?? initialDate ?? getTodayDateInputValue());
+  const [calendarMonth, setCalendarMonth] = useState(initialPayment?.date ?? initialDate ?? getTodayDateInputValue());
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [comment, setComment] = useState(initialPayment?.comment ?? "");
   const [repeatRule, setRepeatRule] = useState<RepeatRule>(initialPayment?.repeatRule ?? "none");
@@ -128,7 +130,7 @@ export function PaymentForm({
 
     const trimmedTitle = title.trim();
     const trimmedDate = date.trim();
-    const normalizedAmount = amount.trim().replace(",", ".");
+    const normalizedAmount = amount.trim().replace(/\./g, "").replace(",", ".");
     const parsedAmount = normalizedAmount ? Number(normalizedAmount) : null;
 
     if (!trimmedTitle) {
@@ -193,7 +195,7 @@ export function PaymentForm({
         <AppTextInput
           keyboardType="decimal-pad"
           label={translate("Сумма", "Amount")}
-          onChangeText={setAmount}
+          onChangeText={(value) => setAmount(formatAmountInput(value))}
           placeholder="45000"
           value={amount}
         />

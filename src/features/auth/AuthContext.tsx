@@ -38,6 +38,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(currentSession);
         setIsLoading(false);
       }
+    }).catch(() => {
+      if (isMounted) {
+        setSession(null);
+        setIsLoading(false);
+      }
     });
 
     const {

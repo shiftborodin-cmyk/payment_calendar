@@ -10,6 +10,7 @@ export type LocalPaymentInput = {
   repeatRule: RepeatRule;
   categoryId?: string | null;
   type: PaymentType;
+  status?: PaymentStatus;
 };
 
 type LocalPaymentRow = {
@@ -32,6 +33,7 @@ type LocalPaymentRow = {
 };
 
 const localOperationTimeoutMs = 5000;
+const verboseLocalDiagnostics = false;
 let localRequestCounter = 0;
 
 function getOperationName(label: string) {
@@ -74,7 +76,9 @@ async function withLocalDiagnostics<T>(label: string, operation: () => Promise<T
   const timeoutMessage = `${label}: локальное хранилище не ответило за 5 секунд`;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-  console.log(`[localPayments] ${operationName} start #${requestId}`);
+  if (verboseLocalDiagnostics) {
+    console.log(`[localPayments] ${operationName} start #${requestId}`);
+  }
 
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -87,10 +91,12 @@ async function withLocalDiagnostics<T>(label: string, operation: () => Promise<T
     const result = await Promise.race([operation(), timeout]);
     const successMeta = getSuccessMeta(result);
 
-    if (successMeta) {
-      console.log(`[localPayments] ${operationName} success #${requestId}`, successMeta);
-    } else {
-      console.log(`[localPayments] ${operationName} success #${requestId}`);
+    if (verboseLocalDiagnostics) {
+      if (successMeta) {
+        console.log(`[localPayments] ${operationName} success #${requestId}`, successMeta);
+      } else {
+        console.log(`[localPayments] ${operationName} success #${requestId}`);
+      }
     }
 
     return result;
@@ -180,7 +186,7 @@ export async function createLocalPayment(userId: string, input: LocalPaymentInpu
       currency: "RUB",
       date: input.date,
       comment: input.comment,
-      status: "scheduled",
+      status: input.status ?? "scheduled",
       type: input.type,
       repeat_rule: input.repeatRule,
       created_at: now,

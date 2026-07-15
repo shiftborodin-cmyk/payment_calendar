@@ -4,6 +4,8 @@
 
 > Проект находится в активной разработке. Данные хранятся локально на устройстве, поэтому приложение можно использовать без обязательной регистрации и облачной синхронизации.
 
+Проект разрабатывается владельцем продукта при помощи Codex.
+
 ## Возможности
 
 - календарь в режимах «Месяц» и «Неделя»;
@@ -23,11 +25,12 @@
 
 | Версия | Статус | Что изменилось |
 | --- | --- | --- |
+| **0.1.3** | Готова | 28 иконок категорий в ровной сетке 7×4; компактный список категорий; быстрые доходы и расходы сразу попадают в оплаченные; разделители тысяч через точку; доходы включены по умолчанию; тише диагностические логи и устойчивее обработка сетевых ошибок. [Скачать APK](https://github.com/shiftborodin-cmyk/payment_calendar/releases/download/v0.1.3/payment-calendar-0.1.3.apk) · [Описание релиза](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.3) |
 | **0.1.2** | Готова | Исправлена оплата повторяющихся платежей по отдельной дате; добавлена кнопка оплаты ближайшего платежа на главной; улучшены редактирование серии и отдельного повторения; обновлены график и иконка приложения. [Скачать APK](https://github.com/shiftborodin-cmyk/payment_calendar/releases/download/v0.1.2/payment-calendar-0.1.2.apk) · [Описание релиза](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.2) |
 | **0.1.1** | Стабильная | Полировка календаря и экрана настроек, исправления сборки и обновление интерфейса. [Тег v0.1.1](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.1) |
 | **0.1.0** | Первая стабильная | Первый рабочий Android MVP: календарь, платежи, категории, прогноз остатка и локальное хранение. [Тег v0.1.0](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.0) |
 
-APK версии **0.1.2** можно скачать из [релиза на GitHub](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.2). Предыдущие версии доступны в разделе [Releases](https://github.com/shiftborodin-cmyk/payment_calendar/releases), если для них опубликованы файлы.
+APK версии **0.1.3** можно скачать из [релиза на GitHub](https://github.com/shiftborodin-cmyk/payment_calendar/releases/tag/v0.1.3). Предыдущие версии доступны в разделе [Releases](https://github.com/shiftborodin-cmyk/payment_calendar/releases), если для них опубликованы файлы.
 
 ## Данные и приватность
 

@@ -6,6 +6,7 @@ import { setCurrentLanguage, type AppLanguage } from "@/features/settings/i18n";
 import type { AppAccentColor, AppThemeMode } from "@/shared/theme/theme";
 
 export type AppSettings = {
+  settingsVersion: 2;
   displayName: string;
   language: AppLanguage;
   includeIncome: boolean;
@@ -21,9 +22,10 @@ type AppSettingsContextValue = {
 };
 
 const defaultSettings: AppSettings = {
+  settingsVersion: 2,
   displayName: "",
   language: "ru",
-  includeIncome: false,
+  includeIncome: true,
   openingBalance: 0,
   themeMode: "dark",
   accentColor: "white"
@@ -41,10 +43,12 @@ function normalizeSettings(value: unknown): AppSettings {
   }
 
   const candidate = value as Partial<AppSettings>;
+  const isCurrentSettings = candidate.settingsVersion === 2;
   return {
+    settingsVersion: 2,
     displayName: typeof candidate.displayName === "string" ? candidate.displayName : "",
     language: candidate.language === "en" ? "en" : "ru",
-    includeIncome: candidate.includeIncome === true,
+    includeIncome: isCurrentSettings ? candidate.includeIncome === true : true,
     openingBalance:
       typeof candidate.openingBalance === "number" && Number.isFinite(candidate.openingBalance)
         ? candidate.openingBalance

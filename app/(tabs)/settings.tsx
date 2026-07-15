@@ -6,6 +6,7 @@ import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAppSettings } from "@/features/settings/AppSettingsContext";
 import { translate, type AppLanguage } from "@/features/settings/i18n";
+import { formatAmountInput } from "@/features/payments/paymentFormatters";
 import { AppButton } from "@/shared/ui/AppButton";
 import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { Card } from "@/shared/ui/Card";
@@ -34,7 +35,7 @@ export default function SettingsScreen() {
   const [editingName, setEditingName] = useState(false);
   const [language, setLanguage] = useState<AppLanguage>(settings.language);
   const [includeIncome, setIncludeIncome] = useState(settings.includeIncome);
-  const [openingBalance, setOpeningBalance] = useState(String(settings.openingBalance));
+  const [openingBalance, setOpeningBalance] = useState(formatAmountInput(String(settings.openingBalance)));
   const [themeMode, setThemeMode] = useState<AppThemeMode>(settings.themeMode);
   const [accentColor, setAccentColor] = useState<AppAccentColor>(settings.accentColor);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export default function SettingsScreen() {
     setDisplayName(settings.displayName);
     setLanguage(settings.language);
     setIncludeIncome(settings.includeIncome);
-    setOpeningBalance(String(settings.openingBalance));
+    setOpeningBalance(formatAmountInput(String(settings.openingBalance)));
     setThemeMode(settings.themeMode);
     setAccentColor(settings.accentColor);
   }, [settings]);
@@ -58,7 +59,7 @@ export default function SettingsScreen() {
     setLoading(true);
 
     try {
-      const parsedOpeningBalance = Number(openingBalance.trim().replace(",", "."));
+      const parsedOpeningBalance = Number(openingBalance.trim().replace(/\./g, "").replace(",", "."));
 
       if (includeIncome && !Number.isFinite(parsedOpeningBalance)) {
         Alert.alert(translate("Ошибка", "Error"), translate("Введите начальный остаток числом.", "Enter the opening balance as a number."));
@@ -180,7 +181,7 @@ export default function SettingsScreen() {
             <AppTextInput
               keyboardType="decimal-pad"
               label={translate("Остаток на начало месяца", "Opening balance")}
-              onChangeText={setOpeningBalance}
+              onChangeText={(value) => setOpeningBalance(formatAmountInput(value))}
               placeholder="0"
               value={openingBalance}
             />

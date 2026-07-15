@@ -7,11 +7,11 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { getCategoryCardBackground } from "@/features/categories/categoryColors";
 import { getLocalCategories, type LocalCategory } from "@/features/categories/localCategoriesStorage";
 import { useAppSettings } from "@/features/settings/AppSettingsContext";
-import { getCurrentLocale, translate } from "@/features/settings/i18n";
+import { translate } from "@/features/settings/i18n";
 import { getMonthEndDateString, getMonthStartDateString, getTodayDateString } from "@/features/payments/paymentDates";
 import { getMonthlyBalanceForecast } from "@/features/payments/paymentForecast";
 import { InteractiveForecastChart } from "@/features/payments/InteractiveForecastChart";
-import { formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
+import { formatCurrencyValue, formatPaymentAmount, formatPaymentDate } from "@/features/payments/paymentFormatters";
 import { expandPaymentOccurrences, sortPaymentsByDate } from "@/features/payments/paymentOccurrences";
 import { fetchPaymentItems, setPaymentItemStatus } from "@/features/payments/paymentsApi";
 import { AppButton } from "@/shared/ui/AppButton";
@@ -233,10 +233,10 @@ export default function HomeScreen() {
 
       <View style={styles.addActions}>
         {settings.includeIncome ? <View style={styles.addAction}>
-          <AppButton onPress={() => router.push({ pathname: "/add-payment", params: { type: "income" } })} title={translate("Доход", "Income")} variant="secondary" />
+          <AppButton onPress={() => router.push({ pathname: "/add-payment", params: { type: "income", actual: "1" } })} title={translate("Доход", "Income")} variant="secondary" />
         </View> : null}
         <View style={styles.addAction}>
-          <AppButton onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense" } })} title={translate("Расход", "Expense")} variant="secondary" />
+          <AppButton onPress={() => router.push({ pathname: "/add-payment", params: { type: "expense", actual: "1" } })} title={translate("Расход", "Expense")} variant="secondary" />
         </View>
       </View>
 
@@ -252,16 +252,16 @@ export default function HomeScreen() {
           <View style={styles.forecastSummary}>
             <View style={styles.forecastSummaryItem}>
               <Text style={styles.forecastSummaryLabel}>{translate("Доходы", "Income")}</Text>
-              <Text style={styles.forecastIncomeValue}>{formatCurrency(forecastIncome)}</Text>
+              <Text style={styles.forecastIncomeValue}>{formatCurrencyValue(forecastIncome)}</Text>
             </View>
             <View style={styles.forecastSummaryItem}>
               <Text style={styles.forecastSummaryLabel}>{translate("Расходы", "Expenses")}</Text>
-              <Text style={styles.forecastExpenseValue}>{formatCurrency(forecastExpense)}</Text>
+              <Text style={styles.forecastExpenseValue}>{formatCurrencyValue(forecastExpense)}</Text>
             </View>
             <View style={styles.forecastSummaryItem}>
               <Text style={styles.forecastSummaryLabel}>{translate("Остаток", "Balance")}</Text>
               <Text style={[styles.forecastBalanceValue, projectedBalance < 0 && styles.forecastNegativeValue]}>
-                {formatCurrency(projectedBalance)}
+                {formatCurrencyValue(projectedBalance)}
               </Text>
             </View>
           </View>
@@ -281,14 +281,14 @@ export default function HomeScreen() {
           <View style={styles.monthTextBlock}>
             <Text style={styles.monthLabel}>{translate("В этом месяце платежей", "Payments this month")} <Text style={styles.monthCount}>{currentMonthExpenses.length}</Text></Text>
           </View>
-          <Text style={styles.monthValue}>{formatCurrency(currentMonthExpenseTotal)}</Text>
+          <Text style={styles.monthValue}>{formatCurrencyValue(currentMonthExpenseTotal)}</Text>
         </View>
         <View style={styles.monthDivider} />
         <View style={styles.monthRow}>
           <View style={styles.monthTextBlock}>
             <Text style={styles.monthLabel}>{translate("Оплачено в этом месяце", "Paid this month")} <Text style={styles.monthCount}>{currentMonthPaidExpenses.length}</Text></Text>
           </View>
-          <Text style={styles.monthValue}>{formatCurrency(currentMonthPaidTotal)}</Text>
+          <Text style={styles.monthValue}>{formatCurrencyValue(currentMonthPaidTotal)}</Text>
         </View>
         {settings.includeIncome ? <>
           <View style={styles.monthDivider} />
@@ -296,7 +296,7 @@ export default function HomeScreen() {
             <View style={styles.monthTextBlock}>
               <Text style={styles.monthLabel}>{translate("Доходы в этом месяце", "Income this month")} <Text style={styles.monthCount}>{currentMonthIncome.length}</Text></Text>
             </View>
-            <Text style={styles.incomeMonthValue}>{formatCurrency(currentMonthIncomeTotal)}</Text>
+            <Text style={styles.incomeMonthValue}>{formatCurrencyValue(currentMonthIncomeTotal)}</Text>
           </View>
         </> : null}
       </Card>
@@ -590,12 +590,4 @@ function createStyles(theme: AppTheme) {
     fontWeight: "700"
   }
   });
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat(getCurrentLocale(), {
-    currency: "RUB",
-    maximumFractionDigits: 0,
-    style: "currency"
-  }).format(value);
 }

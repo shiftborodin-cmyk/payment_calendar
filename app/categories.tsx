@@ -12,31 +12,20 @@ import {
   type LocalCategory
 } from "@/features/categories/localCategoriesStorage";
 import { clearLocalPaymentCategory } from "@/features/payments/localPaymentsStorage";
+import { categoryColors, categoryIcons, type CategoryIcon } from "@/features/categories/categoryOptions";
 import { AppButton } from "@/shared/ui/AppButton";
 import { AppTextInput } from "@/shared/ui/AppTextInput";
 import { Card } from "@/shared/ui/Card";
 import { ScreenContainer } from "@/shared/ui/ScreenContainer";
 import { theme } from "@/shared/theme/theme";
 
-const categoryColors = ["#36D17D", "#4FB3FF", "#F2C94C", "#7BDCB5", "#66D9EF", "#9BAAA2", "#FF8A65", "#B48CFF"];
-const categoryIcons = [
-  "home-outline",
-  "briefcase-outline",
-  "card-outline",
-  "repeat-outline",
-  "document-text-outline",
-  "car-outline",
-  "cart-outline",
-  "ellipsis-horizontal-outline"
-] as const;
-
 export default function CategoriesScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [name, setName] = useState("");
-  const [color, setColor] = useState(categoryColors[0]);
-  const [icon, setIcon] = useState<(typeof categoryIcons)[number]>(categoryIcons[0]);
+  const [color, setColor] = useState<string>(categoryColors[0]);
+  const [icon, setIcon] = useState<CategoryIcon>(categoryIcons[0]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -80,7 +69,7 @@ export default function CategoriesScreen() {
     setEditingId(category.id);
     setName(category.name);
     setColor(category.color);
-    setIcon((categoryIcons.includes(category.icon as (typeof categoryIcons)[number])
+    setIcon((categoryIcons.includes(category.icon as CategoryIcon)
       ? category.icon
       : categoryIcons[categoryIcons.length - 1]) as (typeof categoryIcons)[number]);
   }
@@ -191,7 +180,7 @@ export default function CategoriesScreen() {
           value={name}
         />
         <Text style={styles.pickerLabel}>Иконка</Text>
-        <ScrollView contentContainerStyle={styles.iconRow} horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.iconGrid}>
           {categoryIcons.map((itemIcon) => (
             <Pressable
               key={itemIcon}
@@ -201,7 +190,7 @@ export default function CategoriesScreen() {
               <Ionicons color={icon === itemIcon ? theme.colors.text : theme.colors.textMuted} name={itemIcon} size={21} />
             </Pressable>
           ))}
-        </ScrollView>
+        </View>
         <Text style={styles.pickerLabel}>Цвет</Text>
         <ScrollView contentContainerStyle={styles.colorRow} horizontal showsHorizontalScrollIndicator={false}>
           {categoryColors.map((itemColor) => (
@@ -249,17 +238,18 @@ export default function CategoriesScreen() {
               <Text style={styles.categoryName}>{category.name}</Text>
             </View>
             <View style={styles.categoryActions}>
-              <Pressable onPress={() => handleEdit(category)} style={styles.smallButton}>
-                <Text style={styles.smallButtonText}>Редактировать</Text>
+              <Pressable accessibilityLabel="Редактировать категорию" onPress={() => handleEdit(category)} style={styles.smallIconButton}>
+                <Ionicons color={theme.colors.primary} name="pencil-outline" size={17} />
+                <Text style={styles.smallIconButtonText}>Изменить</Text>
               </Pressable>
               <Pressable
+                accessibilityLabel="Удалить категорию"
                 disabled={deletingId === category.id}
                 onPress={() => handleDelete(category)}
-                style={[styles.smallButton, styles.deleteButton, deletingId === category.id && styles.disabledButton]}
+                style={[styles.smallIconButton, styles.deleteButton, deletingId === category.id && styles.disabledButton]}
               >
-                <Text style={[styles.smallButtonText, styles.deleteButtonText]}>
-                  {deletingId === category.id ? "Удаляю..." : "Удалить"}
-                </Text>
+                <Ionicons color={theme.colors.danger} name="trash-outline" size={17} />
+                <Text style={[styles.smallIconButtonText, styles.deleteButtonText]}>{deletingId === category.id ? "..." : "Удалить"}</Text>
               </Pressable>
             </View>
           </Card>
@@ -303,9 +293,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingVertical: 2
   },
-  iconRow: {
+  iconGrid: {
     flexDirection: "row",
-    gap: theme.spacing.sm,
+    flexWrap: "wrap",
+    gap: 6,
+    justifyContent: "space-between",
     paddingHorizontal: 2,
     paddingVertical: 2
   },
@@ -320,9 +312,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    height: 40,
+    height: 30,
     justifyContent: "center",
-    width: 40
+    width: 30
   },
   iconButtonActive: {
     backgroundColor: theme.colors.primarySoft,
@@ -377,11 +369,15 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm
   },
   categoryCard: {
-    gap: theme.spacing.md
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    paddingVertical: 10
   },
   categoryInfo: {
     alignItems: "center",
     flexDirection: "row",
+    flex: 1,
     gap: theme.spacing.sm
   },
   categoryIcon: {
@@ -399,23 +395,24 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   categoryActions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm
+    gap: 5,
+    justifyContent: "center"
   },
-  smallButton: {
+  smallIconButton: {
     alignItems: "center",
     backgroundColor: theme.colors.primarySoft,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    flex: 1,
-    minHeight: 40,
+    flexDirection: "row",
+    gap: 4,
+    minHeight: 28,
     justifyContent: "center",
-    paddingHorizontal: theme.spacing.sm
+    paddingHorizontal: 7
   },
-  smallButtonText: {
+  smallIconButtonText: {
     color: theme.colors.primary,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "700",
     textAlign: "center"
   },

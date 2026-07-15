@@ -3,21 +3,12 @@ import { PanResponder, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Path } from "react-native-svg";
 
 import type { DailyBalanceForecast } from "@/features/payments/paymentForecast";
-import { formatPaymentDate } from "@/features/payments/paymentFormatters";
-import { getCurrentLocale } from "@/features/settings/i18n";
+import { formatCurrencyValue, formatPaymentDate } from "@/features/payments/paymentFormatters";
 import { useTheme } from "@/shared/theme/theme";
 
 const CHART_HEIGHT = 122;
 const PLOT_TOP = 12;
 const PLOT_BOTTOM = 24;
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat(getCurrentLocale(), {
-    currency: "RUB",
-    maximumFractionDigits: 0,
-    style: "currency"
-  }).format(value);
-}
 
 function shortDate(date: string) {
   return formatPaymentDate(date).replace(/\s*\d{4}.*/, "");
@@ -124,7 +115,7 @@ export function InteractiveForecastChart({ forecast }: { forecast: DailyBalanceF
       </View>
       {selectedPoint ? (
         <View pointerEvents="none" style={[styles.valueBubble, { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, left: Math.max(4, Math.min(width - 96, selectedPoint.x - 48)), top: Math.max(0, selectedPoint.y - 28) }]}>
-          <Text style={[styles.valueText, { color: theme.colors.text }]}>{formatCurrency(selected.balance)}</Text>
+          <Text style={[styles.valueText, { color: theme.colors.text }]}>{formatCurrencyValue(selected.balance)}</Text>
         </View>
       ) : null}
     </View>

@@ -11,8 +11,9 @@ import { useTheme, type AppTheme } from "@/shared/theme/theme";
 
 export default function AddPaymentScreen() {
   const router = useRouter();
-  const { type: typeParam } = useLocalSearchParams<{ type?: string }>();
+  const { type: typeParam, actual: actualParam } = useLocalSearchParams<{ type?: string; actual?: string }>();
   const operationType = typeParam === "income" ? "income" : "expense";
+  const isActual = actualParam === "1";
   const { user } = useAuth();
   const theme = useTheme();
   const styles = createStyles(theme);
@@ -34,7 +35,7 @@ export default function AddPaymentScreen() {
     setSaving(true);
 
     try {
-      await createPaymentItem({ ...values, userId: user.id });
+      await createPaymentItem({ ...values, status: isActual ? "paid" : "scheduled", userId: user.id });
       router.back();
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : translate("Не удалось сохранить операцию.", "Could not save the operation.");
@@ -49,13 +50,18 @@ export default function AddPaymentScreen() {
     <ScreenContainer keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <Text style={styles.title}>{operationType === "income" ? translate("Новый доход", "New income") : translate("Новый расход", "New expense")}</Text>
-        <Text style={styles.subtitle}>{operationType === "income" ? translate("Добавьте поступление денег в календарь.", "Add money received to your calendar.") : translate("Добавьте предстоящий платёж в календарь.", "Add an upcoming payment to your calendar.")}</Text>
+        <Text style={styles.subtitle}>{isActual
+          ? translate("Зафиксируйте уже совершённую операцию.", "Record an operation that has already happened.")
+          : operationType === "income"
+            ? translate("Добавьте поступление денег в календарь.", "Add money received to your calendar.")
+            : translate("Добавьте предстоящий платёж в календарь.", "Add an upcoming payment to your calendar.")}</Text>
       </View>
 
       <PaymentForm
         error={error}
         initialType={operationType}
         lockType
+        hideRepeatRule={isActual}
         loading={saving}
         onCancel={() => router.back()}
         onSubmit={handleSave}

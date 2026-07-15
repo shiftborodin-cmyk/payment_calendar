@@ -2,7 +2,7 @@
   "expo": {
     "name": "Payment Calendar",
     "slug": "payment-calendar",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "icon": "./assets/payment-calendar-icon.png",
     "orientation": "portrait",
     "scheme": "paymentcalendar",
