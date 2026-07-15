@@ -1,4 +1,5 @@
 import { Stack, useRouter, useSegments } from "expo-router";
+import Head from "expo-router/head";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -9,7 +10,7 @@ import { LoadingScreen } from "@/shared/ui/LoadingScreen";
 import { createAppTheme, ThemeProvider } from "@/shared/theme/theme";
 
 function RootLayoutNav() {
-  const { session, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { settings, isLoading: isSettingsLoading } = useAppSettings();
   const segments = useSegments();
   const router = useRouter();
@@ -22,15 +23,15 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === "(auth)";
 
-    if (!session && !inAuthGroup) {
+    if (!isAuthenticated && !inAuthGroup) {
       router.replace("/(auth)/login");
       return;
     }
 
-    if (session && inAuthGroup) {
+    if (isAuthenticated && inAuthGroup) {
       router.replace("/(tabs)");
     }
-  }, [isLoading, isSettingsLoading, router, segments, session]);
+  }, [isAuthenticated, isLoading, isSettingsLoading, router, segments]);
 
   if (isLoading || isSettingsLoading) {
     return <LoadingScreen />;
@@ -38,6 +39,9 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={theme}>
+      <Head>
+        <title>Платёжный календарь</title>
+      </Head>
       <StatusBar style={settings.themeMode === "light" ? "dark" : "light"} />
       <Stack
         screenOptions={{

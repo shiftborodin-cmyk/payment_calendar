@@ -1,0 +1,20 @@
+{
+  "name": "Платёжный календарь",
+  "short_name": "Календарь",
+  "description": "Личный календарь доходов и расходов",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B1410",
+  "theme_color": "#0B1410",
+  "icons": [
+    {
+      "src": "/payment-calendar-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

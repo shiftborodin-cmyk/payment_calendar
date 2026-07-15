@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, View, type ScrollViewProps, type ViewStyle } from "react-native";
+import { Platform, ScrollView, StyleSheet, View, type ScrollViewProps, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme, type AppTheme } from "@/shared/theme/theme";
@@ -53,11 +53,14 @@ function createStyles(theme: AppTheme) {
     flex: 1
   },
   content: {
+    alignSelf: "center",
     flexGrow: 1,
     gap: theme.spacing.md,
+    maxWidth: Platform.OS === "web" ? 640 : undefined,
     paddingBottom: theme.spacing.lg,
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md
+    paddingTop: theme.spacing.md,
+    width: "100%"
   }
   });
 }

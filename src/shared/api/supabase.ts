@@ -15,12 +15,15 @@ const supabaseUrl =
 const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || extra?.supabaseAnonKey || "";
 
+const isWebServer = typeof window === "undefined";
+
 export const supabaseConfigError =
   !supabaseUrl || !supabaseAnonKey
     ? "Supabase не настроен: проверьте EXPO_PUBLIC_SUPABASE_URL и EXPO_PUBLIC_SUPABASE_ANON_KEY в .env и перезапустите Expo с очисткой кеша."
     : null;
 
 export const supabase: SupabaseClient | null = supabaseConfigError
+  || isWebServer
   ? null
   : createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
@@ -33,7 +36,7 @@ export const supabase: SupabaseClient | null = supabaseConfigError
 
 export function getSupabaseClient() {
   if (!supabase) {
-    throw new Error(supabaseConfigError ?? "Supabase не настроен.");
+    throw new Error(supabaseConfigError ?? "Supabase недоступен в этом окружении.");
   }
 
   return supabase;

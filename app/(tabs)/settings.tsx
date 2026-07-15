@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/AuthContext";
 import { useAppSettings } from "@/features/settings/AppSettingsContext";
@@ -127,7 +127,9 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.profileText}>
               <Text style={styles.sectionTitle}>{settings.displayName.trim() || translate("Профиль", "Profile")}</Text>
-              <Text numberOfLines={1} style={styles.email}>{user?.email ?? "—"}</Text>
+              <Text numberOfLines={1} style={styles.email}>
+                {Platform.OS === "web" ? translate("Данные хранятся на этом устройстве", "Data is stored on this device") : user?.email ?? "—"}
+              </Text>
             </View>
           </View>
           {!editingName ? (
@@ -257,7 +259,9 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <AppButton icon="log-out-outline" loading={loading} onPress={handleSignOut} title={translate("Выйти", "Sign out")} variant="danger" />
+      {Platform.OS !== "web" ? (
+        <AppButton icon="log-out-outline" loading={loading} onPress={handleSignOut} title={translate("Выйти", "Sign out")} variant="danger" />
+      ) : null}
     </ScreenContainer>
   );
 }

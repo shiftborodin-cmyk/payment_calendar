@@ -7,6 +7,11 @@
     "orientation": "portrait",
     "scheme": "paymentcalendar",
     "userInterfaceStyle": "dark",
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/payment-calendar-icon.png",
+      "output": "static"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.personal.paymentcalendar"

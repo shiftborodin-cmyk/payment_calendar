@@ -1,4 +1,5 @@
 import type { Session, User } from "@supabase/supabase-js";
+import { Platform } from "react-native";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { getSupabaseClient, supabaseConfigError } from "@/shared/api/supabase";
@@ -12,6 +13,7 @@ type AuthResult = {
 type AuthContextValue = {
   session: Session | null;
   user: User | null;
+  isAuthenticated: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
@@ -20,11 +22,21 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const webLocalUser = {
+  id: "local-web-user",
+  email: "друг"
+} as User;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (Platform.OS === "web") {
+      setIsLoading(false);
+      return;
+    }
+
     let isMounted = true;
     const supabase = supabaseConfigError ? null : getSupabaseClient();
 
@@ -61,7 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
-      user: session?.user ?? null,
+      user: Platform.OS === "web" ? webLocalUser : session?.user ?? null,
+      isAuthenticated: Platform.OS === "web" || Boolean(session),
       isLoading,
       async signIn(email, password) {
         if (supabaseConfigError) {
@@ -88,6 +101,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       },
       async signOut() {
+        if (Platform.OS === "web") {
+          return;
+        }
+
         if (supabaseConfigError) {
           setSession(null);
           return;
